@@ -8,6 +8,7 @@ var multer = require('multer')
 var fs = require('fs')
 var cors = require('cors') // 다른 서버로 접근하기위해서 사용
 var mysql = require('mysql');
+var crypto = require('crypto'); //비밀번호 암호화
 
 var mysqlDB = require('./mysql-db');
 mysqlDB.connect();
@@ -43,6 +44,92 @@ var upload = multer({
 
 var router = express.Router();
 app.use('/',router);
+
+router.route("/examine").post(function(req,res){ //중복체크
+    var email = req.body.email;
+    console.log("email : "+email);
+    mysqlDB.query('select * from USER where u_email=?',[email],function(err,results){
+        if(err){
+            console.log("에러발생");
+        }
+        else if(results[0])
+        {
+            console.log("이미 이메일이 존재합니다.");
+            res.writeHead(200,{"Content-Type":"text/html;charset=uft8"});
+            var examine={"overlap_examine":"deny"};
+            res.write(JSON.stringify(examine));
+            res.end();
+        }
+        else{
+            console.log("존재하지 않습니다.")
+            res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
+            var examine={"overlap_examine":"access"}
+            res.write(JSON.stringify(examine));
+            res.end();
+        }
+    })  
+})
+
+router.route("/admin/process").post(function(req,res){ //회원가입
+    var email = req.body.email;
+    var inputPassword = req.body.password;
+    var name = req.body.name;
+    var department = req.body.department;
+    var salt = Math.round((new Date().valueOf() * Math.random())) + "";
+    var hashPassword = crypto.createHash("sha512").update(inputPassword+salt).digest("hex");
+    console.log(`email : ${email} , inputPassword : ${inputPassword}, hashPassword : ${hashPassword}, name : ${name} , department : ${department}, salt : ${salt}`);
+    
+    var data = {u_email:email,u_password:hashPassword,u_name:name,u_department:department,u_salt:salt};
+    mysqlDB.query('insert into USER set ?',data,function(err,results){
+        var admit;
+        if(err){
+            console.log("회원가입시 inser 에러 발생");
+            admit ={"overlap_examine":"deny"};
+            res.write(JSON.stringify(admit));
+            res.end()
+        }else{
+            admit={"overlap_examine":"success"};
+            console.log("회원가입 성공");
+            res.write("success")
+        }
+    })
+})
+
+router.route("/login/process").post(function(req,res){ //로그인 처리
+    var email = req.body.email;
+    var password = req.body.password;
+    console.log("email : "+email);
+    console.log("password : "+password);
+
+    mysqlDB.query('select * from USER where u_email=?',[email],function(err,results){
+        var login;
+        if(err)
+        {
+            login = {"overlap_examine":"error"};
+            console.log("로그인 에러");
+        }
+        else if(!results[0]){
+            login = {"overlap_examine":"no"}; 
+            console.log("아이디 없음")
+            
+        }
+        else{
+            var user = results[0];
+            var hashpassword = crypto.createHash("sha512").update(password+user.u_salt).digest("hex");
+            if(hashpassword === user.u_password){
+                console.log("login success");
+                login = {"overlap_examine":"yes"};
+            }else{
+                console.log("비밀번호가 틀림");
+                login = {"overlap_examine":"wrong"}
+            }
+            console.log(JSON.stringify(login));
+            res.write(JSON.stringify(login));
+            res.end();
+        }
+    })
+})
+
 
 router.route("/mperson").get(function(req,res){
     mysqlDB.query('select * from MPERSON',function(err,rows,fields){
