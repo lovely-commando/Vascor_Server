@@ -45,6 +45,51 @@ var upload = multer({
 var router = express.Router();
 app.use('/',router);
 
+router.route("/change/department").get(function(req,res){ //부서 변경
+    var u_department = req.query.u_department;
+    var u_id = req.query.u_id;
+    console.log("u_id : "+u_id);
+    console.log("u_department : "+u_department);
+    
+    mysqlDB.query('update USER set u_department = ? where u_id=?',[u_department,u_id],function(err,rows,fields){
+        var user;
+        if(err){
+            console.log("에러 발생");
+            user = {"check":"no"}
+            res.send(JSON.stringify(user))
+        }else{
+            console.log("부서변경 성공");
+            user = {"check":"yes"}
+            res.send(JSON.stringify(user))
+        }
+    })
+});
+
+router.route("/change/password").post(function(req,res){ //비밀번호 변경
+    var u_id = req.body.u_id;
+    var password = req.body.password;
+    console.log("u_id : "+u_id);
+    console.log("password : "+password);
+    
+    var salt = Math.round((new Date().valueOf() * Math.random())) + "";
+    var hashPassword = crypto.createHash("sha512").update(password+salt).digest("hex");
+    mysqlDB.query('update USER set u_password=?,u_salt=? where u_id=?',[hashPassword,salt,u_id],function(err,rows,fields){
+        var user;
+        if(err){
+            console.log(err);
+            console.log("에러 발생");
+            user={"check":"no"};  
+            res.send(JSON.stringify(user));          
+        }
+        else{
+            console.log("rows : " + rows);
+            console.log("fields : "+ fields);
+            user={"check":"yes"}
+            res.send(JSON.stringify(user)); 
+        }
+    })
+})
+
 router.route("/examine").post(function(req,res){ //중복체크
     var email = req.body.email;
     console.log("email : "+email);
@@ -55,8 +100,9 @@ router.route("/examine").post(function(req,res){ //중복체크
         else if(results[0])
         {
             console.log("이미 이메일이 존재합니다.");
-            res.writeHead(200,{"Content-Type":"text/html;charset=uft8"});
+            res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
             var examine={"overlap_examine":"deny"};
+            console.log(JSON.stringify(examine));
             res.write(JSON.stringify(examine));
             res.end();
         }
@@ -90,7 +136,8 @@ router.route("/admin/process").post(function(req,res){ //회원가입
         }else{
             admit={"overlap_examine":"success"};
             console.log("회원가입 성공");
-            res.write("success")
+            res.write(JSON.stringify(admit));
+            res.end();
         }
     })
 })
@@ -105,23 +152,28 @@ router.route("/login/process").post(function(req,res){ //로그인 처리
         var login;
         if(err)
         {
-            login = {"overlap_examine":"error"};
+            login = {"check":"error"};
             console.log("로그인 에러");
+            console.log(JSON.stringify(login));
+            res.write(JSON.stringify(login));
+            res.end();
         }
         else if(!results[0]){
-            login = {"overlap_examine":"no"}; 
+            login = {"check":"no"}; 
             console.log("아이디 없음")
-            
+            console.log(JSON.stringify(login));
+            res.write(JSON.stringify(login));
+            res.end();
         }
         else{
             var user = results[0];
             var hashpassword = crypto.createHash("sha512").update(password+user.u_salt).digest("hex");
             if(hashpassword === user.u_password){
                 console.log("login success");
-                login = {"overlap_examine":"yes"};
+                login = {"check":"yes","u_email":user.u_email,"u_name":user.u_name,"u_department":user.u_department,"u_id":user.u_id};
             }else{
                 console.log("비밀번호가 틀림");
-                login = {"overlap_examine":"wrong"}
+                login = {"check":"wrong"}
             }
             console.log(JSON.stringify(login));
             res.write(JSON.stringify(login));
@@ -131,11 +183,10 @@ router.route("/login/process").post(function(req,res){ //로그인 처리
 })
 
 
-router.route("/mperson").get(function(req,res){
+router.route("/mperson").get(function(req,res){ //실종자 리스트 (지역정보 쿼리스트링으로 받아오기)
     mysqlDB.query('select * from MPERSON',function(err,rows,fields){
         if(err){
             console.log("query error : " + err);
-            //res.send(err);
         }else{
             var result = 'rows : '+JSON.stringify(rows)+'<br><br>' +
             'fields : ' + JSON.stringify(fields);
