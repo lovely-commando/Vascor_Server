@@ -46,6 +46,19 @@ var router = express.Router();
 app.use('/',router);
 
 
+router.route("/mapdetail").get(function(req,res){
+    var m_id = req.query.m_id;
+    console.log("m_id : "+m_id);
+    mysqlDB.query('select * from MAPDETAIL where m_id = ?',[m_id],function(err,rows,fields){
+        if(err){
+            console.log("error입니다")
+        }
+        else{
+            res.write(JSON.stringify(rows));
+            res.end();
+        }
+    })
+})
 
 
 router.route("/person/maplist").get(function(req,res){ //맵정보 가져오기,실종자별로 
@@ -76,14 +89,14 @@ router.route("/map/attendance").post(function(req,res){ //방 참가 처리
         var attendance;
         if(err)
         {
-            attendance = {"check":"error"};
+            attendance = {"overlap_examine":"error"};
             console.log("방참가 에러 에러");
             console.log(JSON.stringify(attendance));
             res.write(JSON.stringify(attendance));
             res.end();
         }
         else if(!results[0]){
-            attendance = {"check":"no"}; 
+            attendance = {"overlap_examine":"no"}; 
             console.log("방 없음")
             console.log(JSON.stringify(attendance));
             res.write(JSON.stringify(attendance));
@@ -94,10 +107,10 @@ router.route("/map/attendance").post(function(req,res){ //방 참가 처리
             var hashpassword = crypto.createHash("sha512").update(password+map.m_salt).digest("hex");
             if(hashpassword === map.m_password){
                 console.log("attendance success");
-                attendance = {"check":"yes"};
+                attendance = {"overlap_examine":"yes"};
             }else{
                 console.log("attendance fail");
-                attendance = {"check":"wrong"}
+                attendance = {"overlap_examine":"wrong"}
             }
             console.log(JSON.stringify(attendance));
             res.write(JSON.stringify(attendance));
@@ -157,7 +170,8 @@ router.route("/map/make").post(function(req,res){ //맵만들기
             res.write(JSON.stringify(admit));
             res.end()
         }else{
-            admit={"overlap_examine":"success"};
+            admit={"overlap_examine":"success","m_id":results.insertId};
+            //console.log("results :" +JSON.stringify(results));
             console.log("회원가입 성공");
             res.write(JSON.stringify(admit));
             res.end();
@@ -181,36 +195,43 @@ router.route("/mypage/maplist").get(function(req,res){ //맵정보 가저오기
 })
 
 router.route("/delete/room").post(function(req,res){ //방삭제
-    var u_id = req.body.u_id; //안드로이드에서 보낸 아이디
-    var u_password = req.body.u_password; //안드로이드에서 보낸 비밀번호
-   
-    console.log("u_id : "+u_id);
-    console.log("u_pass : "+u_password);
-    mysqlDB.query('select * from USER where u_id=?',[u_id],function(err,results){
-        var user;
+    var mapId = req.body.mapId;
+    var password = req.body.password;
+    console.log("mapId : "+mapId);
+    console.log("password : "+password);
+
+    mysqlDB.query('select * from MAPLIST where m_id=?',[mapId],function(err,results){
+        var delete_room;
         if(err)
         {
-            console.log("error 존재");
-            console.log(error);
-            user ={"check" : "error"};
-            res.send(JSON.stringify(user));
+            delete_room = {"overlap_examine":"error"};
+            console.log("방참가 에러 에러");
+            console.log(JSON.stringify(delete_room));
+            res.write(JSON.stringify(delete_room));
+            res.end();
         }
-        else if(results[0]){ //존재
-            var hashPassword = crypto.createHash("sha512").update(u_password+results[0].u_salt).digest("hex");
-            if(hashPassword == results[0].u_password){ 
-                user={"check":"yes"};
-                
-                //쿼리문 통해서 방삭제
-                res.send(JSON.stringify(user));
-                
-            } 
-            else{
-                console.log("비밀번호 일치 x");
-                user = {"check" : "no"};
-                res.send(JSON.stringify(user));
-            } 
+        else if(!results[0]){
+            delete_room = {"overlap_examine":"no"}; 
+            console.log("방 없음")
+            console.log(JSON.stringify(delete_room));
+            res.write(JSON.stringify(delete_room));
+            res.end();
         }
-       
+        else{
+            var map = results[0];
+            var hashpassword = crypto.createHash("sha512").update(password+map.m_salt).digest("hex");
+            if(hashpassword === map.m_password){
+                console.log("delete_room success");
+                delete_room = {"overlap_examine":"yes"};
+                mysqlDB.query(`UPDATE MAPLIST SET m_status = 0 WHERE m_id=${mapId}`);
+            }else{
+                console.log("delete_room fail");
+                delete_room = {"overlap_examine":"wrong"}
+            }
+            console.log(JSON.stringify(delete_room));
+            res.write(JSON.stringify(delete_room));
+            res.end();
+        }
     })
 });
 
@@ -447,6 +468,13 @@ io.sockets.on('connection',function(socket){
         console.log("mid : "+mid);
         console.log("districtNum : "+districtNum);
         console.log("index : "+index);
+        
+        var DBdata = {m_id:mid,md_districtNum:districtNum,md_index:index,md_status:"1"};
+        mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
+            if(err){
+                console.err("error입니다.")
+            }
+        })
         //디비에저장
 
         //모두에게 데이터 보내기
@@ -472,6 +500,14 @@ io.sockets.on('connection',function(socket){
         console.log("dist : "+districtNum);
         console.log("index : "+index);
         console.log("content : "+content);
+
+        var DBdata = {m_id:mid,md_districtNum:districtNum,md_index:index,md_status:"0"};
+        mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
+            if(err){
+                console.log("error입니다.")
+                console.log(err)
+            }
+        })
 
         //디비 저장
 
