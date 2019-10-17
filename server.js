@@ -45,6 +45,70 @@ var upload = multer({
 var router = express.Router();
 app.use('/',router);
 
+
+router.route("/person/maplist").get(function(req,res){ //맵정보 가져오기,실종자별로 
+    var p_id = req.query.p_id;
+    mysqlDB.query('select m_id, p_id, m_owner, m_status, m_horizontal, m_vertical, m_place_string, m_place_latitude, m_place_longitude, m_up, m_down, m_right, m_left, m_unit_scale, m_rotation, m_center_point_latitude, m_center_point_longitude from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
+        if(err){
+            console.log("error 입니다");
+        }else{
+            console.log(rows);
+            res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
+            res.write(JSON.stringify(rows));
+            res.end();
+        }
+    })
+})
+
+
+router.route("/mypage/maplist").get(function(req,res){ //맵정보 가저오기
+    var u_id = req.query.u_id;
+    mysqlDB.query('select m_id,p_name,m_place_string from MAPLIST,MPERSON where m_status = 1 and m_owner=? and MAPLIST.p_id=MPERSON.p_id',[u_id],function(err,rows,fields){
+        if(err){
+            console.log("error 입니다");
+        }else{
+            console.log(rows);
+            res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
+            res.write(JSON.stringify(rows));
+            res.end();
+        }
+    })
+})
+
+router.route("/delete/room").post(function(req,res){ //방삭제
+    var u_id = req.body.u_id; //안드로이드에서 보낸 아이디
+    var u_password = req.body.u_password; //안드로이드에서 보낸 비밀번호
+   
+    console.log("u_id : "+u_id);
+    console.log("u_pass : "+u_password);
+    mysqlDB.query('select * from USER where u_id=?',[u_id],function(err,results){
+        var user;
+        if(err)
+        {
+            console.log("error 존재");
+            console.log(error);
+            user ={"check" : "error"};
+            res.send(JSON.stringify(user));
+        }
+        else if(results[0]){ //존재
+            var hashPassword = crypto.createHash("sha512").update(u_password+results[0].u_salt).digest("hex");
+            if(hashPassword == results[0].u_password){ 
+                user={"check":"yes"};
+                
+                //쿼리문 통해서 방삭제
+                res.send(JSON.stringify(user));
+                
+            } 
+            else{
+                console.log("비밀번호 일치 x");
+                user = {"check" : "no"};
+                res.send(JSON.stringify(user));
+            } 
+        }
+       
+    })
+});
+
 router.route("/change/department").get(function(req,res){ //부서 변경
     var u_department = req.query.u_department;
     var u_id = req.query.u_id;
@@ -129,7 +193,7 @@ router.route("/admin/process").post(function(req,res){ //회원가입
     mysqlDB.query('insert into USER set ?',data,function(err,results){
         var admit;
         if(err){
-            console.log("회원가입시 inser 에러 발생");
+            console.log("회원가입시 insert 에러 발생");
             admit ={"overlap_examine":"deny"};
             res.write(JSON.stringify(admit));
             res.end()
