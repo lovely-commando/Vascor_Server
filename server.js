@@ -92,7 +92,7 @@ router.route("/map/make").post(function(req,res){ //맵만들기
                 `mapLeft : ${mapLeft} , mapUnitScale : ${mapUnitScale}, mapRotation : ${mapRotation}, mapCenterLatitude : ${mapCenterLatitude} , mapCenterLongitude : ${mapCenterLongitude}, mapNorthWest : ${mapNorthWest} , `+
                 `mapNorthEast : ${mapNorthEast} , mapSouthWest : ${mapSouthWest}, mapSouthEast : ${mapSouthEast}, salt : ${salt}, hashPassword : ${hashPassword}`);
     
-    var data = {p_id:mperson,m_password:mapPassword,m_owner:mapOwner,m_status:mapStaus,m_horizontal:mapHorizontal,m_vertical:mapVertical,
+    var data = {p_id:mperson,m_password:hashPassword,m_owner:mapOwner,m_status:mapStaus,m_horizontal:mapHorizontal,m_vertical:mapVertical,
                 m_place_string:mapPlacestring,m_place_latitude:mapPlaceLatitude,m_place_longitude:mapPlaceLongitude,m_up:mapUp,m_down:mapDown,m_right:mapRight,m_left:mapLeft,
                 m_unit_scale:mapUnitScale,m_rotation:mapRotation,m_center_point_latitude:mapCenterLatitude,m_center_point_longitude:mapCenterLongitude,m_northWest:mapNorthWest,
                 m_northEast:mapNorthEast,m_southWest:mapSouthWest,m_southEast:mapSouthEast,m_salt:salt};
@@ -106,7 +106,7 @@ router.route("/map/make").post(function(req,res){ //맵만들기
         }else{
             admit={"overlap_examine":"success"};
             console.log("회원가입 성공");
-            res.write(JSON.strinㅅgify(admit));
+            res.write(JSON.stringify(admit));
             res.end();
         }
     })
@@ -370,6 +370,7 @@ var io = socketio.listen(server); //소켓 서버 생성
 console.log('socket.io 요청을 받아들일 준비가 되었습니다');
 
 var user_list = {};
+var user_id = new Array();
 //socket
 io.sockets.on('connection',function(socket){
    
@@ -381,6 +382,7 @@ io.sockets.on('connection',function(socket){
         user_list[data.id] = socket.id;
         socket.attend_id = socket.id;
         var message = { msg: 'server', data:'data'}
+        user_id[user_id.length] = data.id;
         io.sockets.connected[user_list[data.id]].emit('attendRoom',message);
     })
     
@@ -394,8 +396,17 @@ io.sockets.on('connection',function(socket){
         console.log("index : "+index);
         //디비에저장
 
-
-
+        //모두에게 데이터 보내기
+        var serve_data = {
+            districtNum : districtNum,
+            index : index
+        };
+        console.log("user_size : "+user_id.length);
+        //io.sockets.emit("complete",serve_data);
+        for(var i = 0;i<user_id.length;i++){
+            console.log("user_id : "+user_id[i]);
+            io.sockets.connected[user_list[user_id[i]]].emit("complete",serve_data);
+        }
     });
 
     socket.on('not_complete',function(data){
