@@ -48,12 +48,14 @@ app.use('/',router);
 
 
 
-
 router.route("/person/maplist").get(function(req,res){ //맵정보 가져오기,실종자별로 
     var p_id = req.query.p_id;
-    mysqlDB.query('select m_id, p_id, m_owner, m_status, m_horizontal, m_vertical, m_place_string, m_place_latitude, m_place_longitude, m_up, m_down, m_right, m_left, m_unit_scale, m_rotation, m_center_point_latitude, m_center_point_longitude, m_northWest, m_northEast, m_southWest, m_southEast from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
+    mysqlDB.query('select m_id, p_id, m_owner, m_status, m_horizontal, m_vertical, m_place_string, m_place_latitude, m_place_longitude, m_up, m_down, m_right, m_left, m_unit_scale,' +
+                    'm_rotation, m_center_point_latitude, m_center_point_longitude, m_northWest_latitude, m_northWest_longitude, m_northEast_latitude, m_northEast_longitude,' +
+                    'm_southWest_latitude, m_southWest_longitude, m_southEast_latitude, m_southEast_longitude from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
         if(err){
             console.log("error 입니다");
+            console.log(err);
         }else{
             console.log(rows);
             res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
@@ -63,39 +65,90 @@ router.route("/person/maplist").get(function(req,res){ //맵정보 가져오기,
     })
 })
 
+
+router.route("/map/attendance").post(function(req,res){ //방 참가 처리
+    var mapId = req.body.mapId;
+    var password = req.body.password;
+    console.log("mapId : "+mapId);
+    console.log("password : "+password);
+
+    mysqlDB.query('select * from MAPLIST where m_id=?',[mapId],function(err,results){
+        var attendance;
+        if(err)
+        {
+            attendance = {"check":"error"};
+            console.log("방참가 에러 에러");
+            console.log(JSON.stringify(attendance));
+            res.write(JSON.stringify(attendance));
+            res.end();
+        }
+        else if(!results[0]){
+            attendance = {"check":"no"}; 
+            console.log("방 없음")
+            console.log(JSON.stringify(attendance));
+            res.write(JSON.stringify(attendance));
+            res.end();
+        }
+        else{
+            var map = results[0];
+            var hashpassword = crypto.createHash("sha512").update(password+map.m_salt).digest("hex");
+            if(hashpassword === map.m_password){
+                console.log("attendance success");
+                attendance = {"check":"yes"};
+            }else{
+                console.log("attendance fail");
+                attendance = {"check":"wrong"}
+            }
+            console.log(JSON.stringify(attendance));
+            res.write(JSON.stringify(attendance));
+            res.end();
+        }
+    })
+})
+
 router.route("/map/make").post(function(req,res){ //맵만들기
-    var mperson             = req.body.mperson;
-    var mapPassword         = req.body.mapPassword;
-    var mapOwner            = req.body.mapOwner;
-    var mapStaus            = req.body.mapStatus;
-    var mapHorizontal       = req.body.mapHorizontal;
-    var mapVertical         = req.body.mapVertical;
-    var mapPlacestring      = req.body.mapPlacestring;
-    var mapPlaceLatitude    = req.body.mapPlaceLatitude;
-    var mapPlaceLongitude   = req.body.mapPlaceLongitude;
-    var mapUp               = req.body.mapUp;
-    var mapDown             = req.body.mapDown;
-    var mapRight            = req.body.mapRight;
-    var mapLeft             = req.body.mapLeft;
-    var mapUnitScale        = req.body.mapUnitScale;
-    var mapRotation         = req.body.mapRotation;
-    var mapCenterLatitude   = req.body.mapCenterLatitude;
-    var mapCenterLongitude  = req.body.mapCenterLongitude;
-    var mapNorthWest        = req.body.mapNorthWest;
-    var mapNorthEast        = req.body.mapNorthEast;
-    var mapSouthWest        = req.body.mapSouthWest;
-    var mapSouthEast        = req.body.mapSouthEast;
+    var mperson                    = req.body.mperson;
+    var mapPassword                = req.body.mapPassword;
+    var mapOwner                   = req.body.mapOwner;
+    var mapStaus                   = req.body.mapStatus;
+    var mapHorizontal              = req.body.mapHorizontal;
+    var mapVertical                = req.body.mapVertical;
+    var mapPlacestring             = req.body.mapPlacestring;
+    var mapPlaceLatitude           = req.body.mapPlaceLatitude;
+    var mapPlaceLongitude          = req.body.mapPlaceLongitude;
+    var mapUp                      = req.body.mapUp;
+    var mapDown                    = req.body.mapDown;
+    var mapRight                   = req.body.mapRight;
+    var mapLeft                    = req.body.mapLeft;
+    var mapUnitScale               = req.body.mapUnitScale;
+    var mapRotation                = req.body.mapRotation;
+    var mapCenterLatitude          = req.body.mapCenterLatitude;
+    var mapCenterLongitude         = req.body.mapCenterLongitude;
+    var mapNorthWestLatitude       = req.body.mapNorthWestLatitude;
+    var mapNorthWestLongitude      = req.body.mapNorthWestLongitude;
+    var mapNorthEastLatitude       = req.body.mapNorthEastLatitude;
+    var mapNorthEastLongitude      = req.body.mapNorthEastLongitude;
+    var mapSouthWestLatitude       = req.body.mapSouthWestLatitude;
+    var mapSouthWestLongitude      = req.body.mapSouthWestLongitude;
+    var mapSouthEastLatitude       = req.body.mapSouthEastLatitude;
+    var mapSouthEastLongitude      = req.body.mapSouthEastLongitude;
     var salt = Math.round((new Date().valueOf() * Math.random())) + "";
     var hashPassword = crypto.createHash("sha512").update(mapPassword+salt).digest("hex");
     console.log(`mperson : ${mperson} , mapPassword : ${mapPassword}, mapOwner : ${mapOwner}, mapStaus : ${mapStaus} , mapHorizontal : ${mapHorizontal}, mapVertical : ${mapVertical} , `+
                 `mapPlacestring : ${mapPlacestring} , mapPlaceLatitude : ${mapPlaceLatitude}, mapPlaceLongitude : ${mapPlaceLongitude}, mapUp : ${mapUp} , mapDown : ${mapDown}, mapRight : ${mapRight} , `+
-                `mapLeft : ${mapLeft} , mapUnitScale : ${mapUnitScale}, mapRotation : ${mapRotation}, mapCenterLatitude : ${mapCenterLatitude} , mapCenterLongitude : ${mapCenterLongitude}, mapNorthWest : ${mapNorthWest} , `+
-                `mapNorthEast : ${mapNorthEast} , mapSouthWest : ${mapSouthWest}, mapSouthEast : ${mapSouthEast}, salt : ${salt}, hashPassword : ${hashPassword}`);
+                `mapLeft : ${mapLeft} , mapUnitScale : ${mapUnitScale}, mapRotation : ${mapRotation}, mapCenterLatitude : ${mapCenterLatitude} , mapCenterLongitude : ${mapCenterLongitude}, mapNorthWestLatitude : ${mapNorthWestLatitude} , `+
+                `mapNorthWestLongitude : ${mapNorthWestLongitude} , mapNorthEastLatitude : ${mapNorthEastLatitude}, mapNorthEastLongitude : ${mapNorthEastLongitude},`+
+                `mapSouthWestLatitude : ${mapSouthWestLatitude} , mapSouthWestLongitude : ${mapSouthWestLongitude}, mapSouthEastLatitude : ${mapSouthEastLatitude},`+
+                `mapSouthEastLongitude : ${mapSouthEastLongitude} , salt : ${salt}, hashPassword : ${hashPassword}`);
     
     var data = {p_id:mperson,m_password:hashPassword,m_owner:mapOwner,m_status:mapStaus,m_horizontal:mapHorizontal,m_vertical:mapVertical,
                 m_place_string:mapPlacestring,m_place_latitude:mapPlaceLatitude,m_place_longitude:mapPlaceLongitude,m_up:mapUp,m_down:mapDown,m_right:mapRight,m_left:mapLeft,
-                m_unit_scale:mapUnitScale,m_rotation:mapRotation,m_center_point_latitude:mapCenterLatitude,m_center_point_longitude:mapCenterLongitude,m_northWest:mapNorthWest,
-                m_northEast:mapNorthEast,m_southWest:mapSouthWest,m_southEast:mapSouthEast,m_salt:salt};
+                m_unit_scale:mapUnitScale,m_rotation:mapRotation,m_center_point_latitude:mapCenterLatitude,m_center_point_longitude:mapCenterLongitude,
+                m_northWest_latitude:mapNorthWestLatitude,m_northWest_longitude:mapNorthWestLongitude,
+                m_northEast_latitude:mapNorthEastLatitude,m_northEast_longitude:mapNorthEastLongitude,
+                m_southWest_latitude:mapSouthWestLatitude,m_southWest_longitude:mapSouthWestLongitude,
+                m_southEast_latitude:mapSouthEastLatitude,m_southEast_longitude:mapSouthEastLongitude,
+                m_salt:salt};
     mysqlDB.query('insert into MAPLIST set ?',data,function(err,results){
         var admit;
         if(err){
@@ -401,15 +454,44 @@ io.sockets.on('connection',function(socket){
             districtNum : districtNum,
             index : index
         };
-        console.log("user_size : "+user_id.length);
-        //io.sockets.emit("complete",serve_data);
-        for(var i = 0;i<user_id.length;i++){
+        //console.log("user_size : "+user_id.length);
+        io.sockets.emit("complete",serve_data);
+        /*for(var i = 0;i<user_id.length;i++){
             console.log("user_id : "+user_id[i]);
             io.sockets.connected[user_list[user_id[i]]].emit("complete",serve_data);
-        }
+        }*/
     });
 
     socket.on('not_complete',function(data){
         console.log('Client Mesaage : '+data);
+        var mid = data.mid;
+        var districtNum = data.districtNum;
+        var index = data.index;
+        var content = data.content;
+        console.log("mid : "+mid);
+        console.log("dist : "+districtNum);
+        console.log("index : "+index);
+        console.log("content : "+content);
+
+        //디비 저장
+
+        var serve_data = {
+            districtNum : districtNum,
+            index : index,
+            content : content
+        };
+        
+        io.sockets.emit("not_complete",serve_data);
     })
+
+   /* socket.on('disconnect',function(data){
+        var u_id = data.u_id;
+        var socket_id = user_list[u_id];
+        console.log("disconnect");
+        console.log("data : "+u_id);
+        var index = user_id.indexOf(u_id);
+        user_id.pop(index);
+        delete user_list.u_id;
+        io.sockets.connected[socket_id].emit("disconnect",null);
+    })*/
 })
