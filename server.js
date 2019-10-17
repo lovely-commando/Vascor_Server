@@ -9,7 +9,7 @@ var fs = require('fs')
 var cors = require('cors') // 다른 서버로 접근하기위해서 사용
 var mysql = require('mysql');
 var crypto = require('crypto'); //비밀번호 암호화
-
+var socketio = require('socket.io');
 var mysqlDB = require('./mysql-db');
 mysqlDB.connect();
 
@@ -46,15 +46,67 @@ var router = express.Router();
 app.use('/',router);
 
 
+
+
+
 router.route("/person/maplist").get(function(req,res){ //맵정보 가져오기,실종자별로 
     var p_id = req.query.p_id;
-    mysqlDB.query('select m_id, p_id, m_owner, m_status, m_horizontal, m_vertical, m_place_string, m_place_latitude, m_place_longitude, m_up, m_down, m_right, m_left, m_unit_scale, m_rotation, m_center_point_latitude, m_center_point_longitude from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
+    mysqlDB.query('select m_id, p_id, m_owner, m_status, m_horizontal, m_vertical, m_place_string, m_place_latitude, m_place_longitude, m_up, m_down, m_right, m_left, m_unit_scale, m_rotation, m_center_point_latitude, m_center_point_longitude, m_northWest, m_northEast, m_southWest, m_southEast from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
         if(err){
             console.log("error 입니다");
         }else{
             console.log(rows);
             res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
             res.write(JSON.stringify(rows));
+            res.end();
+        }
+    })
+})
+
+router.route("/map/make").post(function(req,res){ //맵만들기
+    var mperson             = req.body.mperson;
+    var mapPassword         = req.body.mapPassword;
+    var mapOwner            = req.body.mapOwner;
+    var mapStaus            = req.body.mapStatus;
+    var mapHorizontal       = req.body.mapHorizontal;
+    var mapVertical         = req.body.mapVertical;
+    var mapPlacestring      = req.body.mapPlacestring;
+    var mapPlaceLatitude    = req.body.mapPlaceLatitude;
+    var mapPlaceLongitude   = req.body.mapPlaceLongitude;
+    var mapUp               = req.body.mapUp;
+    var mapDown             = req.body.mapDown;
+    var mapRight            = req.body.mapRight;
+    var mapLeft             = req.body.mapLeft;
+    var mapUnitScale        = req.body.mapUnitScale;
+    var mapRotation         = req.body.mapRotation;
+    var mapCenterLatitude   = req.body.mapCenterLatitude;
+    var mapCenterLongitude  = req.body.mapCenterLongitude;
+    var mapNorthWest        = req.body.mapNorthWest;
+    var mapNorthEast        = req.body.mapNorthEast;
+    var mapSouthWest        = req.body.mapSouthWest;
+    var mapSouthEast        = req.body.mapSouthEast;
+    var salt = Math.round((new Date().valueOf() * Math.random())) + "";
+    var hashPassword = crypto.createHash("sha512").update(mapPassword+salt).digest("hex");
+    console.log(`mperson : ${mperson} , mapPassword : ${mapPassword}, mapOwner : ${mapOwner}, mapStaus : ${mapStaus} , mapHorizontal : ${mapHorizontal}, mapVertical : ${mapVertical} , `+
+                `mapPlacestring : ${mapPlacestring} , mapPlaceLatitude : ${mapPlaceLatitude}, mapPlaceLongitude : ${mapPlaceLongitude}, mapUp : ${mapUp} , mapDown : ${mapDown}, mapRight : ${mapRight} , `+
+                `mapLeft : ${mapLeft} , mapUnitScale : ${mapUnitScale}, mapRotation : ${mapRotation}, mapCenterLatitude : ${mapCenterLatitude} , mapCenterLongitude : ${mapCenterLongitude}, mapNorthWest : ${mapNorthWest} , `+
+                `mapNorthEast : ${mapNorthEast} , mapSouthWest : ${mapSouthWest}, mapSouthEast : ${mapSouthEast}, salt : ${salt}, hashPassword : ${hashPassword}`);
+    
+    var data = {p_id:mperson,m_password:mapPassword,m_owner:mapOwner,m_status:mapStaus,m_horizontal:mapHorizontal,m_vertical:mapVertical,
+                m_place_string:mapPlacestring,m_place_latitude:mapPlaceLatitude,m_place_longitude:mapPlaceLongitude,m_up:mapUp,m_down:mapDown,m_right:mapRight,m_left:mapLeft,
+                m_unit_scale:mapUnitScale,m_rotation:mapRotation,m_center_point_latitude:mapCenterLatitude,m_center_point_longitude:mapCenterLongitude,m_northWest:mapNorthWest,
+                m_northEast:mapNorthEast,m_southWest:mapSouthWest,m_southEast:mapSouthEast,m_salt:salt};
+    mysqlDB.query('insert into MAPLIST set ?',data,function(err,results){
+        var admit;
+        if(err){
+            console.log("맵 목록 insert 에러 발생");
+            admit ={"overlap_examine":"deny"};
+            res.write(JSON.stringify(admit));
+            res.end()
+        }else{
+            admit={"overlap_examine":"success"};
+            console.log("회원가입 성공");
+            res.write(JSON.strinㅅgify(admit));
             res.end();
         }
     })
@@ -313,3 +365,40 @@ app.use(function(req,res,next){
 var server = http.createServer(app).listen(app.get('port'),function(){
     console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'));
 }) //express를 이용해 웹서버 만든다
+
+var io = socketio.listen(server); //소켓 서버 생성
+console.log('socket.io 요청을 받아들일 준비가 되었습니다');
+
+var user_list = {};
+//socket
+io.sockets.on('connection',function(socket){
+   
+    console.log('Socket ID : '+ socket.id + ', Connect');
+    
+    socket.on('attendRoom', function(data){  //방참여 
+        console.log("접속한 소켓 id : "+socket.id); 
+        console.log("data.id : "+data.id);
+        user_list[data.id] = socket.id;
+        socket.attend_id = socket.id;
+        var message = { msg: 'server', data:'data'}
+        io.sockets.connected[user_list[data.id]].emit('attendRoom',message);
+    })
+    
+    socket.on('complete',function(data){
+        console.log('Client Message : '+data);
+        var mid = data.mid;
+        var districtNum = data.districtNum;
+        var index = data.index;
+        console.log("mid : "+mid);
+        console.log("districtNum : "+districtNum);
+        console.log("index : "+index);
+        //디비에저장
+
+
+
+    });
+
+    socket.on('not_complete',function(data){
+        console.log('Client Mesaage : '+data);
+    })
+})
