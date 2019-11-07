@@ -443,78 +443,33 @@ var server = http.createServer(app).listen(app.get('port'),function(){
 var io = socketio.listen(server); //소켓 서버 생성
 console.log('socket.io 요청을 받아들일 준비가 되었습니다');
 
-//var total_list = new Array();
-//var user_list = {};
-//var user_id = new Array();
+var user_list = {};
+var user_id = new Array();
 //socket
 io.sockets.on('connection',function(socket){
    
     console.log('Socket ID : '+ socket.id + ', Connect');
     
-   /* socket.on('attendRoom', function(data){  //이미 있는 지도에서 방참여 
-        console.log("첫번째 : "+total_list[data.mapid]); // 나가면 자동으로 total_list에 있는 값이 없어지는데 알아보기
+    socket.on('attendRoom', function(data){  //방참여 
         console.log("접속한 소켓 id : "+socket.id); 
-        console.log("user_id : "+data.id);
-        console.log("map_id : "+data.mapid);
-        var id = data.id;
-        var mapid = data.mapid;
-        if(total_list[mapid].length == 0)
-            totla_list[mapid] = new Array();
-       // total_list[mapid][id] = socket.id;
-        total_list[mapid].push( {u_id : data.id,s_id : socket.id }); //이거생각해보기  배열에 json객체를 넣는데 이미 만들어진 리스트
-        //에 넣는거 이렇게 안들어가짐
-        console.log("두 번쨰 : "+total_list[mapid]);
-        console.log(total_list);
-        
-       // user_list[data.id] = socket.id;
+        console.log("data.id : "+data.id);
+        user_list[data.id] = socket.id;
         socket.attend_id = socket.id;//socket에 attend_id변수 추가하고 socket.id값 넣기
-        var message = { msg: 'server', data:'방참여'}
-       // user_id[user_id.length] = data.id;
-        io.sockets.connected[socket.id].emit('attendRoom',message);
-    })*/
-    socket.on('attendRoom',function(data){
-        var u_id = data.id // user id
-        var m_id = data.mapid // map id
-        
-        socket.join(m_id);
-        var message = { msg: 'server', data:'방참여'}
-        console.log("curRoom : "+ io.sockets.adapter.rooms[m_id]);
-        console.log("curRoom_length : "+ io.sockets.adapter.rooms[m_id].length);
-        io.sockets.connected[socket.id].emit('attendRoom',message);
-    
-    })
-
-    socket.on('makeroom',function(data){
-        var u_id = data.id //user id
-        var m_id = data.mapid //map id
-
-        console.log("make room");
-        if(io.sockets.adapter.rooms[m_id]){
-            console.log("이미 방이 만들어져 있습니다.");
-        }else
-        console.log('새로방을 만듭니다');
-
-        socket.join(m_id);
-
-        var curRoom = io.sockets.adapter.rooms[m_id];
-        curRoom.u_id = u_id;
-        curRoom.m_id = m_id;
-        curRoom.s_id = socket.id;
-        console.log("curRoom : "+curRoom);
-        var message = {msg:'server',data :'방만들기 완료'}
-        io.sockets.connected[socket.id].emit('makeroom',message);
+        var message = { msg: 'server', data:'data'}
+        user_id[user_id.length] = data.id;
+        io.sockets.connected[user_list[data.id]].emit('attendRoom',message);
     })
     
     socket.on('complete',function(data){
         console.log('Client Message : '+data);
-        var m_id = data.mid;
+        var mid = data.mid;
         var districtNum = data.districtNum;
         var index = data.index;
-        console.log("mid : "+m_id);
+        console.log("mid : "+mid);
         console.log("districtNum : "+districtNum);
         console.log("index : "+index);
         
-        var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"1"};
+        var DBdata = {m_id:mid,md_districtNum:districtNum,md_index:index,md_status:"1"};
         mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
             if(err){
                 console.err("error입니다.")
@@ -527,22 +482,26 @@ io.sockets.on('connection',function(socket){
             districtNum : districtNum,
             index : index
         };
-        
-        io.sockets.in(m_id).emit('complete',serve_data);
+        //console.log("user_size : "+user_id.length);
+        io.sockets.emit("complete",serve_data);
+        /*for(var i = 0;i<user_id.length;i++){
+            console.log("user_id : "+user_id[i]);
+            io.sockets.connected[user_list[user_id[i]]].emit("complete",serve_data);
+        }*/
     });
 
-    socket.on('not_complete',function(data){ //사진 넣어야함
+    socket.on('not_complete',function(data){
         console.log('Client Mesaage : '+data);
-        var m_id = data.mid;
+        var mid = data.mid;
         var districtNum = data.districtNum;
         var index = data.index;
         var content = data.content;
-        console.log("mid : "+m_id);
+        console.log("mid : "+mid);
         console.log("dist : "+districtNum);
         console.log("index : "+index);
         console.log("content : "+content);
 
-        var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"0"};
+        var DBdata = {m_id:mid,md_districtNum:districtNum,md_index:index,md_status:"0"};
         mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
             if(err){
                 console.log("error입니다.")
@@ -558,7 +517,7 @@ io.sockets.on('connection',function(socket){
             content : content
         };
         
-        io.sockets.in(m_id).emit('not_complete',serve_data);
+        io.sockets.emit("not_complete",serve_data);
     })
 
    /* socket.on('disconnect',function(data){
@@ -572,12 +531,3 @@ io.sockets.on('connection',function(socket){
         io.sockets.connected[socket_id].emit("disconnect",null);
     })*/
 })
-
-
-// 문제랑 고처야할것 
-/*
-1. connection 끊었을 때 처리해주기
-2. 일정시간지나면 배열에 저장해둔 소켓정보가 모두사라저버림
-3. 기존에 존재하는 지도에 처음들어왔을때 이때 지도에 단하나의 소켓도 없다는것을 알 방법이 없음. 
-*/ 
-//해결
