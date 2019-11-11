@@ -25,12 +25,12 @@ app.use(cors());
 
 var storage = multer.diskStorage({
     destination : function(req,file,callback){
-        callback(null,'public')
+        callback(null,'./public/not_complete_picture');
     }, //파일위치 정하기
     filename : function(req,file,callback){
        var extension = path.extname(file.originalname); //확장자
        var basename = path.basename(file.originalname,extension); //확장자 뺀 파일이름
-       callback(null,basename+Date.now()+extension);
+       callback(null,basename+extension);
     } //파일이름 정하기
 })
 
@@ -38,13 +38,57 @@ var upload = multer({
     storage : storage,
     limits:{
         files:10,
-        fileSize:1024*1024*1024
+        fileSize:1024*1024*10
     }
 });
 
 var router = express.Router();
 app.use('/',router);
 
+
+
+router.route("/Mpersoninsert").post(function(req,res){
+     var p_name = req.body.p_name;
+    var p_age = req.body.p_age;
+    var p_time = req.body.p_time;
+    var p_place_string = req.body.p_place_string;
+    var p_place_latitude = req.body.p_place_latitude;
+    var p_place_longitude = req.body.p_place_longitude;
+    var p_place_description = req.body.p_place_description;
+    var files = req.files;
+    var p_photo = files[0].originalname//파일이름
+
+    var data = {p_name : p_name , p_age:p_age,p_time:p_time, p_place_string:p_place_string, p_place_latitude:p_place_latitude,
+    p_place_longitude:p_place_longitude,p_place_description:p_place_description,p_photo:p_photo};
+    var data2;
+    mysqlDB.query('insert into MPEPRSON set ?',data,function(err,results){
+        if(err){
+            console.log('mperson insert시 에러발생');
+            data2= {overlap_examine:'no'}
+        }
+        else{
+            data2 = {overlap_examine:'yes'}
+        }
+        console.log('results : '+results);
+        res.write(JSON.stringify(data2));
+    })
+
+})
+   
+
+router.route("/upload").post(upload.array('upload',1) ,function(req,res){ //수색불가시 사진 보낼 때의 url
+    var files = req.files;
+    console.log('===업로드된 파일 ====');
+    console.log(files[0]); //여기서에러남???
+    console.log("file name : "+files[0].originalname);
+
+    var data;
+    data = {overlap_examine : '업로드 성공'};
+
+    res.write(JSON.stringify(data));
+    res.end();
+    
+})
 
 router.route("/mapdetail").get(function(req,res){
     var m_id = req.query.m_id;
