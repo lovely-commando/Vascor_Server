@@ -10,6 +10,7 @@ var cors = require('cors') // 다른 서버로 접근하기위해서 사용
 var mysql = require('mysql');
 var crypto = require('crypto'); //비밀번호 암호화
 var socketio = require('socket.io');
+var Jimp = require('jimp');
 var mysqlDB = require('./mysql-db');
 mysqlDB.connect();
 
@@ -27,15 +28,7 @@ app.use(cors());
 
 var storage = multer.diskStorage({
     destination : function(req,file,callback){
-        var mid = req.body.mid;
-        const {body}=req.body;
-        console.log("body:");
-        console.log(body)
-        //console.log("req.body : "+req.body);
         var dir = './public/not_complete_picture';
-        if(!fs.existsSync(dir)){
-            fs.mkdirSync(dir);
-        }
         callback(null,dir);
 
     }, //파일위치 정하기
@@ -68,7 +61,7 @@ var mpersonUpload = multer({
     storage : mpersonStorage,
     limits:{ 
         files:10,
-        fileSize:1024*1024*10
+        fileSize:1024*1024*1024
     }
 })
 
@@ -78,7 +71,7 @@ app.use('/',router);
 
 
 
-router.route("/Mpersoninsert").post(mpersonUpload.array('upload',1),function(req,res){
+router.route("/insert/mperson").post(mpersonUpload.array('upload',1),function(req,res){
      var p_name = req.body.p_name;
     var p_age = req.body.p_age;
     var p_time = req.body.p_time;
@@ -86,21 +79,53 @@ router.route("/Mpersoninsert").post(mpersonUpload.array('upload',1),function(req
     var p_place_latitude = req.body.p_place_latitude;
     var p_place_longitude = req.body.p_place_longitude;
     var p_place_description = req.body.p_place_description;
+    //console.log(`${p_name} , ${p_age},${p_time}, ${p_place}`)
     var files = req.files;
-    var p_photo = files[0].originalname//파일이름
+    var p_photo = files[0].originalname;
+    var extension = path.extname(files[0].originalname); //확장자
+    var basename = path.basename(files[0].originalname,extension);
+    console.log(extension);
+    console.log(basename);
+    console.log(files[0].originalname);
+    /*if(extension == ".jpeg"||extension == '.jpg'){
+        Jimp.read("./public/mperson_picture/"+files[0].originalname, function(err,image){
+            if(err){
+                console.log("jimp read error");
+                console.log(err);
+            }else{
+                console.log("image write 전");
+                image.write("./public/mperson_picture/"+basename+".png");
+                console.log("fs unlink 전");
+                fs.unlink("./public/mperson_picture/"+files[0].originalname, function(err){
+                    if(err){
+                        console.log("unlink 에러");
+                        console.log(err);
+                    }
+                })
+                
+            } 
+        })
+      
+      
+        var p_photo = basename+".png"//파일이름
+    }
+    else{
+        var p_photo = files[0].originalname//파일이름
+    }*/
+    
 
     var data = {p_name : p_name , p_age:p_age,p_time:p_time, p_place_string:p_place_string, p_place_latitude:p_place_latitude,
     p_place_longitude:p_place_longitude,p_place_description:p_place_description,p_photo:p_photo};
     var data2;
-    mysqlDB.query('insert into MPEPRSON set ?',data,function(err,results){
+    mysqlDB.query('insert into MPERSON set ?',data,function(err,results){
         if(err){
             console.log('mperson insert시 에러발생');
+            console.log("error : "+err);
             data2= {overlap_examine:'no'}
         }
         else{
             data2 = {overlap_examine:'yes'}
         }
-        console.log('results : '+results);
         res.write(JSON.stringify(data2));
     })
 
@@ -109,12 +134,70 @@ router.route("/Mpersoninsert").post(mpersonUpload.array('upload',1),function(req
 
 
 })
+
+///여기서부터 
+/*router.route("/complete").get(function(req,res){
+    var mid = req.query.mid;
+    var lat = req.query.lat;
+    var lng = req.query.lng;
+    console.log("mid : "+mid);
+    console.log("lat : "+lat);
+    console.log("lng : "+lng);
+    var data;
+    mysqlDB.query('UPDATE MAPLIST SET m_find_latitude = ?, m_find_longitude = ? where m_id = ?',[lat, lng, mid],function(err,rows,fields){
+        if(err){
+            console.log("실종자 발견")
+            data ={"overlap_examine":"deny"};
+            res.write(JSON.stringify(data));
+            res.end()
+        }
+        else{
+            data = {"overlap_examine" : 'yes'};
+            res.write(JSON.stringify(data));
+            res.end();
+        }
+    })
+});*/
+
+
+
+/*router.route("/not_complete").get(function(req,res){
+    var mid = req.query.mid;
+    var desc = req.query.desc;
+    var lat = req.query.lat;
+    var lng = req.query.lng;
+    console.log("mid : "+mid);
+    console.log("desc : "+desc);
+    console.log("lat : "+lat);
+    console.log("lng : "+lng);
+    var data;
+    mysqlDB.query('INSERT into UNABLE_LOCATION (m_id, ul_longitude, ul_latitude, ul_desc) values (?, ?, ?, ?);',[mid, lng,lat, desc],function(err,rows,fields){
+        if(err){
+            console.log("발견지점 불가 삽입 실패")
+            data ={"overlap_examine":"deny"};
+            res.write(JSON.stringify(data));
+            res.end()
+        }
+        else{
+            data = {"overlap_examine" : 'yes'};
+            res.write(JSON.stringify(data));
+            res.end();
+        }
+    })
+
+    
+    
+})*/
    
 
 router.route("/not_complete/image").post(upload.array("upload",1),function(req,res){ //수색불가시 사진 보낼 때의 url
     var files = req.files;
     var mid = req.body.mid;
+  
+
     console.log("mid : "+mid);
+  
+
     console.log('===업로드된 파일 ====');
     console.log(files[0]); 
     console.log("file name : "+files[0].originalname);
@@ -122,15 +205,32 @@ router.route("/not_complete/image").post(upload.array("upload",1),function(req,r
     if(!fs.existsSync(dir)){
         fs.mkdirSync(dir);
     }
-    fs.rename("./public/not_complete_picture/"+files[0].originalname, dir+"/"+files[0].originalname, function(err){})
-
-    var data;
-    data = {overlap_examine : '업로드 성공'};
-
-    res.write(JSON.stringify(data));
+    var admit;
+    fs.renameSync("./public/not_complete_picture/"+files[0].originalname, dir+"/"+files[0].originalname,function(err){});
+        
+    admit = {"overlap_examine" : 'yes'};
+    res.write(JSON.stringify(admit));
     res.end();
     
+  
+
+});
+    
+
+
+router.route("/not_complete/list").get(function(req,res){
+    var m_id = req.query.m_id;
+    mysqlDB.query('select * from UNABLE_LOCATION where m_id = ?',[m_id],function(err,rows,fields){
+        if(err){
+            console.log("error입니다")
+        }
+        else{
+            res.write(JSON.stringify(rows));
+            res.end();
+        }
+    })
 })
+
 
 
 router.route("/mapdetail").get(function(req,res){
@@ -462,7 +562,7 @@ router.route("/mperson").get(function(req,res){ //실종자 리스트 (지역정
         }else{
             var result = 'rows : '+JSON.stringify(rows)+'<br><br>' +
             'fields : ' + JSON.stringify(fields);
-            //console.log(rows);
+            console.log(rows);
             //console.log("result : " +result);
             res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
             res.write(JSON.stringify(rows));
@@ -525,7 +625,7 @@ var server = http.createServer(app).listen(app.get('port'),function(){
 var io = socketio.listen(server); //소켓 서버 생성
 console.log('socket.io 요청을 받아들일 준비가 되었습니다');
 
-//var total_list = new Array();
+//var total_list = new Array(); 
 //var user_list = {};
 //var user_id = new Array();
 //socket
@@ -589,58 +689,91 @@ io.sockets.on('connection',function(socket){
     
     socket.on('complete',function(data){
         console.log('Client Message : '+data);
-        var m_id = data.mid;
-        var districtNum = data.districtNum;
-        var index = data.index;
-        console.log("mid : "+m_id);
-        console.log("districtNum : "+districtNum);
-        console.log("index : "+index);
+        var mid = data.mid;
+        var lat = data.lat;
+        var lng = data.lng;
+        console.log("mid : "+mid);
+        console.log("districtNum : "+lat);
+        console.log("index : "+lng);
         
-        var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"1"};
+      /*  var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"1"};
         mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
             if(err){
                 console.err("error입니다.")
             }
         })
-        //디비에저장
+        //디비에저장*/
 
         //모두에게 데이터 보내기
         var serve_data = {
-            districtNum : districtNum,
-            index : index
+            lat : lat,
+            lng : lng
         };
+        var data;
+        mysqlDB.query('UPDATE MAPLIST SET m_find_latitude = ?, m_find_longitude = ? where m_id = ?',[lat, lng, mid],function(err,rows,fields){
+            if(err){
+                console.log("실종자 발견")
+            }
+            else{
+               console.log("성공");
+            }
+        })
         
-        io.sockets.in(m_id).emit('complete',serve_data);
+        io.sockets.in(mid).emit('complete',serve_data);
     });
 
     socket.on('not_complete',function(data){ //사진 넣어야함 =>사진은 http로
         console.log('Client Mesaage : '+data);
-        var m_id = data.mid;
-        var districtNum = data.districtNum;
-        var index = data.index;
-        var content = data.content;
-        //console.log("mid : "+m_id);
-        //console.log("dist : "+districtNum);
-        //console.log("index : "+index);
-        //console.log("content : "+content);
+        var mid = data.mid;
+        var lat = data.lat;
+        var lng = data.lng;
+        var desc = data.desc;
+        var photo_name;
+        if(data.photo_name == null)
+            photo_name = null;
+        else{
+            photo_name = data.photo_name;
+        }
 
-        var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"0"};
+        console.log("mid : "+mid);
+        console.log("dist : "+lat);
+        console.log("index : "+lng);
+        console.log("content : "+desc);
+        console.log("img name :"+photo_name);
+
+        /*var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"0"};
         mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
             if(err){
                 console.log("error입니다.")
                 console.log(err)
             }
-        })
+        })*/
 
         //디비 저장
 
         var serve_data = {
-            districtNum : districtNum,
-            index : index,
-            content : content
+            "lat":lat,
+            "lng":lng,
+            "desc":desc,
+            "photo_name":photo_name
         };
         
-        io.sockets.in(m_id).emit('not_complete',serve_data);
+        io.sockets.in(mid).emit('not_complete',serve_data);
+    })
+
+    socket.on('seeroad',function(data){
+        var mid = data.mid;
+        var lat = data.lat;
+        var lng = data.lng;
+        console.log("mid :"+mid);
+        console.log("lat : "+lat);
+        console.log("lng : "+lng);
+        serve_data = {
+            "lat":lat,
+            "lng":lng,
+        }
+
+        io.sockets.in(mid).emit('seeroad',serve_data);
     })
 
    /* socket.on('disconnect',function(data){
