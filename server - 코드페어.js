@@ -69,86 +69,7 @@ var mpersonUpload = multer({
 var router = express.Router();
 app.use('/',router);
 
-router.route("/complete/data").get(function(req,res){
-    var m_id = req.query.m_id;
-    console.log("m_id : " + m_id);
 
-    mysqlDB.query("select m_find_latitude, m_find_longitude from MAPLIST where m_id =?",[m_id],function(err,results){
-        if(err){
-            console.log("complete 에러 발생");
-        }else{
-           // console.log(JSON.stringify(results));
-            var data = { 
-                "m_find_latitude":results[0].m_find_latitude,
-                "m_find_longitude":results[0].m_find_longitude
-            }
-            res.write(JSON.stringify(data));
-        }
-    })
-})
-
-router.route("/not_complete/list").get(function(req,res){ //특정 인덱스에 대해서만 수색불가정보 가저오기
-    var m_id = req.query.m_id;
-    var index = req.query.index;
-    console.log("m_id : "+m_id);
-    console.log("index : "+index);
-    mysqlDB.query('select ul_longitude,ul_latitude,ul_desc,ul_file,ul_index from UNABLE_LOCATION where m_id = ? and ul_index = ?',[m_id,index],function(err,rows,fields){
-        if(err){
-            console.log("not_complete_list error입니다")
-        }
-        else{
-            res.write(JSON.stringify(rows));
-            res.end();
-        }
-    })
-})
-
-router.route("/tracking/list").get(function(req,res){
-    var mid = req.query.m_id;
-    var index = req.query.index;
-    console.log("mid : "+mid);
-    console.log("index : "+index);
-    mysqlDB.query("select * from MAPDETAIL where m_id = ? and md_index = ?",[mid,index],function(err,rows,fields){
-        if(err){
-            console.log("mapdetail query error : "+err);
-        }else{
-           // console.log("mapdetail rows : "+ JSON.stringify(rows));
-            res.write(JSON.stringify(rows));
-        }
-    })
-})
-
-
-
-//기존 맵에 들어갔을 때, 전체 지도 트래킹 정보 받아오기
-
-router.route("/get/detail/data").get(function(req,res){
-    var mid = req.query.mid;
-    
-
-    mysqlDB.query("select  md_index,md_inner_scale,md_run_length from MAPDETAIL where m_id = ?",[mid],function(err,rows,fields){
-        if(err){
-            console.log("mapdetail query error : "+err);
-        }else{
-          //  console.log("mapdetail rows : "+ JSON.stringify(rows));
-            res.write(JSON.stringify(rows));
-        }
-    })
-})
-//전체 지도 수색불가 정보 받아오기
-router.route("/get/not_complete/data").get(function(req,res){
-    var mid = req.query.mid;
-
-    mysqlDB.query("select ul_longitude,ul_latitude,ul_desc,ul_file,ul_index from UNABLE_LOCATION where m_id = ?",[mid],function(err,rows,fields){
-        if(err){
-            console.log("unable_location query error :"+err);
-
-        }else{
-           // console.log("u_l_q  rows : "+JSON.stringify(rows));
-            res.write(JSON.stringify(rows));
-        }
-    })
-})
 
 router.route("/insert/mperson").post(mpersonUpload.array('upload',1),function(req,res){
      var p_name = req.body.p_name;
@@ -297,6 +218,18 @@ router.route("/not_complete/image").post(upload.array("upload",1),function(req,r
     
 
 
+router.route("/not_complete/list").get(function(req,res){
+    var m_id = req.query.m_id;
+    mysqlDB.query('select * from UNABLE_LOCATION where m_id = ?',[m_id],function(err,rows,fields){
+        if(err){
+            console.log("error입니다")
+        }
+        else{
+            res.write(JSON.stringify(rows));
+            res.end();
+        }
+    })
+})
 
 
 
@@ -424,40 +357,6 @@ router.route("/map/make").post(function(req,res){ //맵만들기
             //console.log("회원가입 성공");
             res.write(JSON.stringify(admit));
             res.end();
-            var run_length = " ";
-            var scale = 0;
-            if(mapUnitScale == "20"){
-                scale = '4';
-                run_length = '2,14,'
-            } else if(mapUnitScale == '30' || mapUnitScale == '50'){
-                scale = '8';
-                run_length = '2,30,'
-            } else if(mapUnitScale == '100'){
-                scale = '16';
-                run_length = '2,62,'
-            } else if(mapUnitScale == '250'){
-                scale = '32';
-                run_length = '2,126,'
-            } else{
-                scale = '64';
-                run_length = '2,254,'
-            }
-            var data2 ;
-            for(var i =0;i<64;i++){
-                data2 = {
-                    "m_id":results.insertId,
-                    "md_index":i,
-                    "md_inner_scale":scale,
-                    "md_run_length":run_length
-                }
-                mysqlDB.query('insert into MAPDETAIL set ?',data2,function(err,row,fields){
-                    if(err){
-                        console.log("mapdetail insert error");
-                    }else{
-                        console.log("mapdetail insert success");
-                    }
-                })
-            }
         }
     })
 })
@@ -734,6 +633,27 @@ io.sockets.on('connection',function(socket){
    
     console.log('Socket ID : '+ socket.id + ', Connect');
     
+   /* socket.on('attendRoom', function(data){  //이미 있는 지도에서 방참여 
+        console.log("첫번째 : "+total_list[data.mapid]); // 나가면 자동으로 total_list에 있는 값이 없어지는데 알아보기
+        console.log("접속한 소켓 id : "+socket.id); 
+        console.log("user_id : "+data.id);
+        console.log("map_id : "+data.mapid);
+        var id = data.id;
+        var mapid = data.mapid;
+        if(total_list[mapid].length == 0)
+            totla_list[mapid] = new Array();
+       // total_list[mapid][id] = socket.id;
+        total_list[mapid].push( {u_id : data.id,s_id : socket.id }); //이거생각해보기  배열에 json객체를 넣는데 이미 만들어진 리스트
+        //에 넣는거 이렇게 안들어가짐
+        console.log("두 번쨰 : "+total_list[mapid]);
+        console.log(total_list);
+        
+       // user_list[data.id] = socket.id;
+        socket.attend_id = socket.id;//socket에 attend_id변수 추가하고 socket.id값 넣기
+        var message = { msg: 'server', data:'방참여'}
+       // user_id[user_id.length] = data.id;
+        io.sockets.connected[socket.id].emit('attendRoom',message);
+    })*/
     socket.on('attendRoom',function(data){
         var u_id = data.id // user id
         var m_id = data.mapid // map id
@@ -773,9 +693,17 @@ io.sockets.on('connection',function(socket){
         var lat = data.lat;
         var lng = data.lng;
         console.log("mid : "+mid);
-        console.log("lat :" +lat);
-        console.log("lng : "+lng);
+        console.log("districtNum : "+lat);
+        console.log("index : "+lng);
         
+      /*  var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"1"};
+        mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
+            if(err){
+                console.err("error입니다.")
+            }
+        })
+        //디비에저장*/
+
         //모두에게 데이터 보내기
         var serve_data = {
             lat : lat,
@@ -801,7 +729,6 @@ io.sockets.on('connection',function(socket){
         var lng = data.lng;
         var desc = data.desc;
         var photo_name;
-        var index = data.index;
         if(data.photo_name == null)
             photo_name = null;
         else{
@@ -813,62 +740,40 @@ io.sockets.on('connection',function(socket){
         console.log("index : "+lng);
         console.log("content : "+desc);
         console.log("img name :"+photo_name);
-        console.log("index : "+index)
 
+        /*var DBdata = {m_id:m_id,md_districtNum:districtNum,md_index:index,md_status:"0"};
+        mysqlDB.query('insert into MAPDETAIL set ?',DBdata,function(err,results){
+            if(err){
+                console.log("error입니다.")
+                console.log(err)
+            }
+        })*/
 
         //디비 저장
-        mysqlDB.query('INSERT into UNABLE_LOCATION (m_id, ul_longitude, ul_latitude, ul_desc,ul_file,ul_index) values (?, ?, ?, ?,?,?);',[mid, lng,lat, desc,photo_name,index],function(err,rows,fields){
-            if(err){
-                console.log("발견지점 불가 삽입 실패")
-            }
-            else{
-                var serve_data = {
-                    "lat":lat,
-                    "lng":lng,
-                    "desc":desc,
-                    "photo_name":photo_name,
-                    "index":index
-                };
-                
-                io.sockets.in(mid).emit('not_complete',serve_data);
-            }
-        })  
+
+        var serve_data = {
+            "lat":lat,
+            "lng":lng,
+            "desc":desc,
+            "photo_name":photo_name
+        };
+        
+        io.sockets.in(mid).emit('not_complete',serve_data);
     })
 
     socket.on('seeroad',function(data){
-        var uid = data.uid;
         var mid = data.mid;
         var lat = data.lat;
         var lng = data.lng;
-        var index = data.index;
-        //var scale = data.scale;
-        var run_length = data.run_length;
-
-        data = {
-            "m_id":mid,
-            "md_index" : index,
-            "md_run_length":run_length
-        }
-
-        mysqlDB.query("update MAPDETAIL set md_run_length=? where m_id=? and md_index=?",[run_length,mid,index],function(err,rows,fields){
-            if(err){
-                console.log("mapdetail update error");
-            }else{
-                console.log("mapdetail update success");
-            }
-        }) // 디비에 run_length 관련 데이터 저장
-        
-        console.log("mid : "+mid);
+        console.log("mid :"+mid);
         console.log("lat : "+lat);
         console.log("lng : "+lng);
         serve_data = {
-            "uid":uid,
             "lat":lat,
-            "lng":lng
-        } //방에있는 클라이언트에게 뿌릴 데이터
+            "lng":lng,
+        }
 
         io.sockets.in(mid).emit('seeroad',serve_data);
-        console.log("io_socket");
     })
 
    /* socket.on('disconnect',function(data){
@@ -884,3 +789,10 @@ io.sockets.on('connection',function(socket){
 })
 
 
+// 문제랑 고처야할것 
+/*
+1. connection 끊었을 때 처리해주기
+2. 일정시간지나면 배열에 저장해둔 소켓정보가 모두사라저버림
+3. 기존에 존재하는 지도에 처음들어왔을때 이때 지도에 단하나의 소켓도 없다는것을 알 방법이 없음. 
+*/ 
+//해결
