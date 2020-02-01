@@ -12,11 +12,12 @@ var crypto = require('crypto'); //비밀번호 암호화
 var socketio = require('socket.io');
 var Jimp = require('jimp');
 var mysqlDB = require('./mysql-db');
+var login = require("./login")
 mysqlDB.connect();
 
 var app = express();
 
-app.set('port',process.env.PORT || 9000); //포트 지정
+app.set('port',process.env.PORT || 9001); //포트 지정
 
 app.use(express.static(path.join(__dirname,'public')));
 app.use(bodyParser.urlencoded({extended:false}));
@@ -615,45 +616,7 @@ router.route("/admin/process").post(function(req,res){ //회원가입
     })
 })
 
-router.route("/login/process").post(function(req,res){ //로그인 처리
-    var email = req.body.email;
-    var password = req.body.password;
-   // console.log("email : "+email);
-   // console.log("password : "+password);
-
-    mysqlDB.query('select * from USER where u_email=?',[email],function(err,results){
-        var login;
-        if(err)
-        {
-            login = {"check":"error"};
-            console.log("로그인 에러");
-            console.log(JSON.stringify(login));
-            res.write(JSON.stringify(login));
-            res.end();
-        }
-        else if(!results[0]){
-            login = {"check":"no"}; 
-           // console.log("아이디 없음")
-           // console.log(JSON.stringify(login));
-            res.write(JSON.stringify(login));
-            res.end();
-        }
-        else{
-            var user = results[0];
-            var hashpassword = crypto.createHash("sha512").update(password+user.u_salt).digest("hex");
-            if(hashpassword === user.u_password){
-                //console.log("login success");
-                login = {"check":"yes","u_email":user.u_email,"u_name":user.u_name,"u_department":user.u_department,"u_id":user.u_id};
-            }else{
-                //console.log("비밀번호가 틀림");
-                login = {"check":"wrong"}
-            }
-           // console.log(JSON.stringify(login));
-            res.write(JSON.stringify(login));
-            res.end();
-        }
-    })
-})
+router.route("/login/process").post(login.loginProcess)
 
 
 router.route("/mperson").get(function(req,res){ //실종자 리스트 (지역정보 쿼리스트링으로 받아오기)
