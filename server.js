@@ -17,7 +17,7 @@ mysqlDB.connect();
 
 var app = express();
 
-app.set('port',process.env.PORT || 9001); //포트 지정
+app.set('port',process.env.PORT || 9000); //포트 지정
 
 app.use(express.static(path.join(__dirname,'public')));
 app.use(bodyParser.urlencoded({extended:false}));
@@ -69,6 +69,21 @@ var mpersonUpload = multer({
 
 var router = express.Router();
 app.use('/',router);
+
+router.route("/get/department").get(function(req,res){
+    var data
+    mysqlDB.query("select * from DEPARTMENT",function(err,rows,fields){
+        if(err){
+            console.log(err)
+            console.log("error 입니다")
+            data={"checked":"error"}
+            res.write(JSON.stringify(data))
+        }else{
+            console.log(rows)
+            res.write(JSON.stringify(rows))
+        }
+    })
+}) //부서얻기
 
 router.route("/complete/data").get(function(req,res){
     var m_id = req.query.m_id;
@@ -148,6 +163,23 @@ router.route("/get/not_complete/data").get(function(req,res){
            // console.log("u_l_q  rows : "+JSON.stringify(rows));
             res.write(JSON.stringify(rows));
         }
+    })
+})
+
+router.route("/insert/department").get(function(req,res){
+    var department = req.query.department
+    var color = req.query.color
+
+    var data = {"u_department":department,"color":color}
+    mysqlDB.query("insert into DEPARTMENT set ?",data,function(err,results){
+        var check
+        if(err){
+            console.log(err)
+            check = {"overlap_examine":"error"}
+        }else{
+            check = {"overlap_examine":"success"}
+        }
+        res.send(JSON.stringify(check))
     })
 })
 
@@ -318,9 +350,7 @@ router.route("/mapdetail").get(function(req,res){
 
 router.route("/person/maplist").get(function(req,res){ //맵정보 가져오기,실종자별로 
     var p_id = req.query.p_id;
-    mysqlDB.query('select m_id, p_id, m_owner, m_status, m_horizontal, m_vertical, m_place_string, m_place_latitude, m_place_longitude, m_up, m_down, m_right, m_left, m_unit_scale,' +
-                    'm_rotation, m_center_point_latitude, m_center_point_longitude, m_northWest_latitude, m_northWest_longitude, m_northEast_latitude, m_northEast_longitude,' +
-                    'm_southWest_latitude, m_southWest_longitude, m_southEast_latitude, m_southEast_longitude from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
+    mysqlDB.query('select * from MAPLIST where m_status = 1 and p_id=?',[p_id],function(err,rows,fields){
         if(err){
             console.log("error 입니다");
             console.log(err);
@@ -356,10 +386,8 @@ router.route("/map/attendance").post(function(req,res){ //방 참가 처리
             var map = results[0];
             var hashpassword = crypto.createHash("sha512").update(password+map.m_salt).digest("hex");
             if(hashpassword === map.m_password){
-                //console.log("attendance success");
                 attendance = {"overlap_examine":"yes"};
             }else{
-                //console.log("attendance fail");
                 attendance = {"overlap_examine":"wrong"}
             }
             //console.log(JSON.stringify(attendance));
@@ -369,40 +397,69 @@ router.route("/map/attendance").post(function(req,res){ //방 참가 처리
     })
 })
 
-router.route("/map/make").post(function(req,res){ //맵만들기
-    var mperson                    = req.body.mperson;
-    var mapPassword                = req.body.mapPassword;
-    var mapOwner                   = req.body.mapOwner;
-    var mapStaus                   = req.body.mapStatus;
-    var mapHorizontal              = req.body.mapHorizontal;
-    var mapVertical                = req.body.mapVertical;
-    var mapPlacestring             = req.body.mapPlacestring;
-    var mapPlaceLatitude           = req.body.mapPlaceLatitude;
-    var mapPlaceLongitude          = req.body.mapPlaceLongitude;
-    var mapUp                      = req.body.mapUp;
-    var mapDown                    = req.body.mapDown;
-    var mapRight                   = req.body.mapRight;
-    var mapLeft                    = req.body.mapLeft;
-    var mapUnitScale               = req.body.mapUnitScale;
-    var mapRotation                = req.body.mapRotation;
-    var mapCenterLatitude          = req.body.mapCenterLatitude;
-    var mapCenterLongitude         = req.body.mapCenterLongitude;
-    var mapNorthWestLatitude       = req.body.mapNorthWestLatitude;
-    var mapNorthWestLongitude      = req.body.mapNorthWestLongitude;
-    var mapNorthEastLatitude       = req.body.mapNorthEastLatitude;
-    var mapNorthEastLongitude      = req.body.mapNorthEastLongitude;
-    var mapSouthWestLatitude       = req.body.mapSouthWestLatitude;
-    var mapSouthWestLongitude      = req.body.mapSouthWestLongitude;
-    var mapSouthEastLatitude       = req.body.mapSouthEastLatitude;
-    var mapSouthEastLongitude      = req.body.mapSouthEastLongitude;
+router.route("/map/make").post(function(req,res){
+    var p_id = req.body.p_id
+    var m_password = req.body.m_password
+    var m_owner = req.body.m_owner
+    var m_status = req.body.m_status
+    var m_size = req.body.m_size
+    var m_unit_scale = req.body.m_unit_scale
+    var m_rotation = req.body.m_rotation
+    var m_center_place_string = req.body.m_center_place_string
+    var m_center_point_latitude = req.body.m_center_point_latitude
+    var m_center_point_longitude = req.body.m_center_point_longitude
+    console.log(p_id)
+    console.log(m_password)
+    console.log(m_owner)
+    console.log(m_status)
+    console.log(m_size)
+    console.log(m_unit_scale)
+    console.log(m_rotation)
+    console.log(m_center_place_string)
+    console.log(m_center_point_latitude)
+    console.log(m_center_point_longitude)    
+    
+    var m_salt = Math.round((new Date().valueOf() * Math.random())) + "";
+    var hashPassword = crypto.createHash("sha512").update(m_password+m_salt).digest("hex");
+    
+    var data = {p_id:p_id,m_password:hashPassword,m_owner:m_owner,m_status:m_status,m_size:m_size,
+                m_unit_scale:m_unit_scale,m_rotation:m_rotation,m_center_place_string:m_center_place_string,
+                m_center_point_latitude:m_center_point_latitude,m_center_point_longitude:m_center_point_longitude,
+                m_salt:m_salt}
+    mysqlDB.query('insert into MAPLIST set ?',data,function(err,results){
+        var admit;
+        if(err){
+            console.log("맵 목록 insert 에러 발생");
+            admit ={"overlap_examine":"error"};
+        }else{
+            console.log(results)
+            admit = {"overlap_examine":"success","m_id":results.insertId}
+        }
+        res.write(JSON.stringify(admit));
+        res.end()
+    })
+})
+
+/*router.route("/map/make").post(function(req,res){ //맵만들기
+    var p_id = req.body.p_id
+    var m_password = req.body.m_password
+    var m_owner = req.body.m_owner
+    var m_status = req.body.m_status
+    var m_size = req.body.m_size
+    var m_unit_scale = req.body.m_unit_scale
+    var m_rotation = req.body.m_rotation
+    var m_center_place_string = req.body.m_center_place_string
+    var m_center_point_latitude = req.body.m_center_point_latitude
+    var m_center_point_longitude = req.body.m_center_point_longitude
+    
     var salt = Math.round((new Date().valueOf() * Math.random())) + "";
     var hashPassword = crypto.createHash("sha512").update(mapPassword+salt).digest("hex");
-    /*console.log(`mperson : ${mperson} , mapPassword : ${mapPassword}, mapOwner : ${mapOwner}, mapStaus : ${mapStaus} , mapHorizontal : ${mapHorizontal}, mapVertical : ${mapVertical} , `+
+    console.log(`mperson : ${mperson} , mapPassword : ${mapPassword}, mapOwner : ${mapOwner}, mapStaus : ${mapStaus} , mapHorizontal : ${mapHorizontal}, mapVertical : ${mapVertical} , `+
                 `mapPlacestring : ${mapPlacestring} , mapPlaceLatitude : ${mapPlaceLatitude}, mapPlaceLongitude : ${mapPlaceLongitude}, mapUp : ${mapUp} , mapDown : ${mapDown}, mapRight : ${mapRight} , `+
                 `mapLeft : ${mapLeft} , mapUnitScale : ${mapUnitScale}, mapRotation : ${mapRotation}, mapCenterLatitude : ${mapCenterLatitude} , mapCenterLongitude : ${mapCenterLongitude}, mapNorthWestLatitude : ${mapNorthWestLatitude} , `+
                 `mapNorthWestLongitude : ${mapNorthWestLongitude} , mapNorthEastLatitude : ${mapNorthEastLatitude}, mapNorthEastLongitude : ${mapNorthEastLongitude},`+
                 `mapSouthWestLatitude : ${mapSouthWestLatitude} , mapSouthWestLongitude : ${mapSouthWestLongitude}, mapSouthEastLatitude : ${mapSouthEastLatitude},`+
-                `mapSouthEastLongitude : ${mapSouthEastLongitude} , salt : ${salt}, hashPassword : ${hashPassword}`);*/
+                `mapSouthEastLongitude : ${mapSouthEastLongitude} , salt : ${salt}, hashPassword : ${hashPassword}`);
     
     var data = {p_id:mperson,m_password:hashPassword,m_owner:mapOwner,m_status:mapStaus,m_horizontal:mapHorizontal,m_vertical:mapVertical,
                 m_place_string:mapPlacestring,m_place_latitude:mapPlaceLatitude,m_place_longitude:mapPlaceLongitude,m_up:mapUp,m_down:mapDown,m_right:mapRight,m_left:mapLeft,
@@ -461,17 +518,16 @@ router.route("/map/make").post(function(req,res){ //맵만들기
             }
         }
     })
-})
+})*/
 
 
 router.route("/mypage/maplist").get(function(req,res){ //맵정보 가저오기
     var u_id = req.query.u_id;
-    mysqlDB.query('select m_id,p_name,m_place_string from MAPLIST,MPERSON where m_status = 1 and m_owner=? and MAPLIST.p_id=MPERSON.p_id',[u_id],function(err,rows,fields){
+    mysqlDB.query('select m_id,p_name,m_center_place_string from MAPLIST,MPERSON where m_status = 1 and m_owner=? and MAPLIST.p_id=MPERSON.p_id',[u_id],function(err,rows,fields){
         if(err){
             console.log("error 입니다");
         }else{
-          //  console.log(rows);
-            res.writeHead(200,{"Content-Type":"text/html;charset=utf8"});
+            console.log(rows);
             res.write(JSON.stringify(rows));
             res.end();
         }
@@ -522,19 +578,30 @@ router.route("/delete/room").post(function(req,res){ //방삭제
 router.route("/change/department").get(function(req,res){ //부서 변경
     var u_department = req.query.u_department;
     var u_id = req.query.u_id;
-    //console.log("u_id : "+u_id);
-    //console.log("u_department : "+u_department);
-    
-    mysqlDB.query('update USER set u_department = ? where u_id=?',[u_department,u_id],function(err,rows,fields){
-        var user;
+
+    //색상정보 알아오기
+    mysqlDB.query('select color from DEPARTMENT where u_department=?',[u_department],function(err,results){
+        var data
         if(err){
             console.log("에러 발생");
-            user = {"check":"no"}
-            res.send(JSON.stringify(user))
+            data={"check":"error"}
+            res.send(JSON.stringify(data))
         }else{
-            //console.log("부서변경 성공");
-            user = {"check":"yes"}
-            res.send(JSON.stringify(user))
+            console.log("color얻어오기")
+            var color = results[0]
+            console.log("color : "+color.color)
+            mysqlDB.query('update USER set u_department = ? where u_id=?',[u_department,u_id],function(err,rows,fields){
+                var user;
+                if(err){
+                    console.log("에러 발생");
+                    user = {"check":"error"}
+                    res.send(JSON.stringify(user))
+                }else{
+                    console.log("부서변경 성공");
+                    user = {"check":"yes","color":color.color}
+                    res.send(JSON.stringify(user))
+                }
+            })
         }
     })
 });

@@ -2,7 +2,7 @@ var mysql = require('mysql');
 var mysqlDB = require('./mysql-db');
 var crypto = require('crypto');
 
-exports.doubleCheck = function(req,res){ // 중복체크
+exports.doubleCheck = function(req,res){ // 이메일 중복체크
     var email = req.body.email;
    // console.log("email : "+email);
     mysqlDB.query('select * from USER where u_email=?',[email],function(err,results){
