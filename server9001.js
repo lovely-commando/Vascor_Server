@@ -22,6 +22,7 @@ var mypage = require('./mypage')
 var mperson = require('./mperson')
 var insertInfo = require('./insertInfo')
 var aboutMap = require('./aboutMap.js')
+var departmentInfo = require('./departmentInfo')
 
 mysqlDB.connect();
 
@@ -81,6 +82,9 @@ router.route("/person/maplist").get(mperson.getMpersonMapList)
 router.route("/map/make").post(aboutMap.mapMake) 
 router.route("/map/attendance").post(aboutMap.mapAttendance)
 
+//departmentInfo.js(부서 변경, 부서 삭제)
+router.route("/modify/department").get(departmentInfo.modfiyDepartment)//departmentInfo.js의 부서 수정
+router.route("/delete/department").get(departmentInfo.deleteDepartment)//departmentINfo.js의 부서 삭제
 
 var server = http.createServer(app).listen(app.get('port'),function(){
     console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'));
