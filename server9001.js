@@ -12,6 +12,7 @@ var mysql = require('mysql');
 var crypto = require('crypto'); //비밀번호 암호화
 var socketio = require('socket.io');
 var Jimp = require('jimp');
+var socketio = require('socket.io');
 
 
 //내가만든 js파일
@@ -87,8 +88,63 @@ router.route("/modify/department").get(departmentInfo.modfiyDepartment)//departm
 router.route("/delete/department").get(departmentInfo.deleteDepartment)//departmentINfo.js의 부서 삭제
 
 var server = http.createServer(app).listen(app.get('port'),function(){
-    console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'));
+    console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'))
 }) //express를 이용해 웹서버 만든다
 
+var io = socketio.listen(server)
+console.log('socket.io 요청을 받아들일 준비가 되었습니다')
+
+io.sockets.on('connection',function(socket){
+    console.log("socket Id : "+socket.id+ " connect")
+    // var data = {}
+    // if(socket == null){
+    //     data["check"] = "error"
+    // }else{
+    //     data["check"] = "success"
+    // }
+    // io.sockets.connected[socket.id].emit("connect",data)
+    socket.on("makeRoom",function(data){
+        var uid = data.uid
+        var mid = data.mid
+
+        console.log("make room");
+        if(io.sockets.adapter.rooms[mid]){
+            console.log("이미 방이 만들어져 있습니다.");
+        }else
+        console.log('새로방을 만듭니다');
+
+        socket.join(mid);
+
+        var curRoom = io.sockets.adapter.rooms[mid];
+        var message = {}
+        if(curRoom == null){
+            message["check"] = "error"
+        }else{
+            curRoom.uid = uid;
+            curRoom.mid = mid;
+            curRoom.sid = socket.id;
+            //위치정보 저장할 배열도 있어야함
+            console.log("curRoom : ",curRoom);
+            message["check"] = "success"
+        }
+        io.sockets.connected[socket.id].emit('makeRoom',message);
+    })
+
+    socket.on("attendRoom",function(data){
+        var uid = data.uid // user id
+        var mid = data.mid // map id
+        var message = {}
+
+        if(socket == null){
+            message["check"] = "error"
+        }else{
+            socket.join(mid);
+            console.log("curRoom : ", io.sockets.adapter.rooms[mid]);
+            console.log("curRoom_length : "+ io.sockets.adapter.rooms[mid].length);
+            message["check"] = "success"
+        }
+        io.sockets.connected[socket.id].emit('attendRoom',message);
+    })
+})
 
 

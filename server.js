@@ -761,7 +761,7 @@ console.log('socket.io 요청을 받아들일 준비가 되었습니다');
 //var user_id = new Array();
 //socket
 io.sockets.on('connection',function(socket){
-   
+    
     console.log('Socket ID : '+ socket.id + ', Connect');
     
     socket.on('attendRoom',function(data){
