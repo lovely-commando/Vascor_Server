@@ -96,6 +96,9 @@ console.log('socket.io 요청을 받아들일 준비가 되었습니다')
 
 io.sockets.on('connection',function(socket){
     console.log("socket Id : "+socket.id+ " connect")
+    var LatLngArr = new Array()
+    var socketUID
+    var socketMID
     // var data = {}
     // if(socket == null){
     //     data["check"] = "error"
@@ -103,31 +106,38 @@ io.sockets.on('connection',function(socket){
     //     data["check"] = "success"
     // }
     // io.sockets.connected[socket.id].emit("connect",data)
+    
     socket.on("makeRoom",function(data){
-        var uid = data.uid
-        var mid = data.mid
+        socketUID = data.uid
+        socketMID = data.mid
 
-        console.log("make room");
-        if(io.sockets.adapter.rooms[mid]){
-            console.log("이미 방이 만들어져 있습니다.");
-        }else
-        console.log('새로방을 만듭니다');
-
-        socket.join(mid);
-
-        var curRoom = io.sockets.adapter.rooms[mid];
         var message = {}
-        if(curRoom == null){
-            message["check"] = "error"
-        }else{
-            curRoom.uid = uid;
-            curRoom.mid = mid;
-            curRoom.sid = socket.id;
-            //위치정보 저장할 배열도 있어야함
-            console.log("curRoom : ",curRoom);
+        console.log("make room");
+        if(io.sockets.adapter.rooms.hasOwnProperty(mid)){
+            console.log("이미 방이 만들어져 있습니다.");
             message["check"] = "success"
+            socket.join(mid)
+        }else{
+            socket.join(mid)
+            var curRoom = io.sockets.adapter.rooms[mid];
+            if(curRoom == null){
+                message["check"] = "error"
+            }else{
+                console.log("방만들었습니다.")
+                curRoom.uid = socketUID;
+                curRoom.mid = socketMID;
+                curRoom.sid = socket.id;
+                //위치정보 저장할 배열도 있어야함
+                console.log("curRoom : ",curRoom);
+                console.log("curRoom_length : ", io.sockets.adapter.rooms[mid].length)
+                message["check"] = "success"
+            }
         }
-        io.sockets.connected[socket.id].emit('makeRoom',message);
+        console.log("message : ",message)
+        io.sockets.connected[socket.id].emit('makeRoom',message)
+
+       
+        
     })
 
     socket.on("attendRoom",function(data){
@@ -145,6 +155,37 @@ io.sockets.on('connection',function(socket){
         }
         io.sockets.connected[socket.id].emit('attendRoom',message);
     })
+
+    socket.on("sendLatLng", function(data){
+        var curLat = data.Lat
+        var curLng = data.Lng
+        var curLatLng = '' + data.Lat + ";" + data.Lng
+        console.log("socketMID : " + socketMID)
+        console.log("socketUID : "+ socketUID)
+        console.log("curLat : " + curLat);
+        console.log("curLng : " + curLng);
+        LatLngArr.push(curLatLng)
+        if(LatLngArr.length > 20){
+            var uploadtoDBLatLng = ""
+            LatLngArr.forEach(function(element){
+                uploadtoDBLatLng += element
+                uploadtoDBLatLng += "@"
+            })
+            console.log("uploadtoDBLatLng : " + uploadtoDBLatLng)
+            mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?);',[socketMID, socketUID, uploadtoDBLatLng],function(err,rows,fields){
+                if(err){
+                    console.log("위치정보 배열 에러")
+                }
+                else{
+                    socket.to(socketMID).emit("drawLatLng", uploadtoDBLatLng)
+                }
+            })
+            LatLngArr = new Array()
+            LatLngArr.push(curLatLng)  
+        }
+    })
+
+
 })
 
 
