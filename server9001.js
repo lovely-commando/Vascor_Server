@@ -100,8 +100,8 @@ console.log('socket.io 요청을 받아들일 준비가 되었습니다')
 io.sockets.on('connection',function(socket){
     console.log("socket Id : "+socket.id+ " connect")
     var LatLngArr = new Array()
-    var socketUID
-    var socketMID
+    
+    
     // var data = {}
     // if(socket == null){
     //     data["check"] = "error"
@@ -111,28 +111,28 @@ io.sockets.on('connection',function(socket){
     // io.sockets.connected[socket.id].emit("connect",data)
     
     socket.on("makeRoom",function(data){
-        socketUID = data.uid
-        socketMID = data.mid
+        socket.uid = data.uid
+        socket.mid = data.mid
 
         var message = {}
         console.log("make room");
-        if(io.sockets.adapter.rooms.hasOwnProperty(mid)){
+        if(io.sockets.adapter.rooms.hasOwnProperty(socket.mid)){
             console.log("이미 방이 만들어져 있습니다.");
             message["check"] = "success"
-            socket.join(mid)
+            socket.join(socket.mid)
         }else{
-            socket.join(mid)
-            var curRoom = io.sockets.adapter.rooms[mid];
+            socket.join(socket.mid)
+            var curRoom = io.sockets.adapter.rooms[socket.mid];
             if(curRoom == null){
                 message["check"] = "error"
             }else{
                 console.log("방만들었습니다.")
-                curRoom.uid = socketUID;
-                curRoom.mid = socketMID;
+                curRoom.uid = socket.uid;
+                curRoom.mid = socket.mid;
                 curRoom.sid = socket.id;
                 //위치정보 저장할 배열도 있어야함
                 console.log("curRoom : ",curRoom);
-                console.log("curRoom_length : ", io.sockets.adapter.rooms[mid].length)
+                console.log("curRoom_length : ", io.sockets.adapter.rooms[socket.mid].length)
                 message["check"] = "success"
             }
         }
@@ -163,8 +163,8 @@ io.sockets.on('connection',function(socket){
         var curLat = data.Lat
         var curLng = data.Lng
         var curLatLng = '' + data.Lat + ";" + data.Lng
-        console.log("socketMID : " + socketMID)
-        console.log("socketUID : "+ socketUID)
+        console.log("socketMID : " + socket.mid)
+        console.log("socketUID : "+ socket.uid)
         console.log("curLat : " + curLat);
         console.log("curLng : " + curLng);
         LatLngArr.push(curLatLng)
@@ -175,12 +175,12 @@ io.sockets.on('connection',function(socket){
                 uploadtoDBLatLng += "@"
             })
             console.log("uploadtoDBLatLng : " + uploadtoDBLatLng)
-            mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?);',[socketMID, socketUID, uploadtoDBLatLng],function(err,rows,fields){
+            mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?);',[socket.mid, socket.uid, uploadtoDBLatLng],function(err,rows,fields){
                 if(err){
                     console.log("위치정보 배열 에러")
                 }
                 else{
-                    socket.to(socketMID).emit("drawLatLng", uploadtoDBLatLng)
+                    socket.to(socket.mid).emit("drawLatLng", uploadtoDBLatLng)
                 }
             })
             LatLngArr = new Array()
