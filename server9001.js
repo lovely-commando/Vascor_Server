@@ -89,6 +89,16 @@ router.route("/delete/department").get(departmentInfo.deleteDepartment)//departm
 
 //지도관련
 
+router.route("/get/placeIndex").get(function(req,res){
+    console.log("get placeindex")
+    var mid = req.query.mid
+    var query = 'select md_index from MAPDETAIL where m_id = ? and md_percent = -1.0'
+    mysqlDB.query(query,[mid],function(err,results){
+        console.log(results)
+        res.send(JSON.stringify(results))
+    })
+})
+
 
 var server = http.createServer(app).listen(app.get('port'),function(){
     console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'))
