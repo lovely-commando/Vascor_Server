@@ -13,9 +13,12 @@ exports.mapMake = function(req,res){
     var m_center_place_string = req.body.m_center_place_string
     var m_center_point_latitude = req.body.m_center_point_latitude
     var m_center_point_longitude = req.body.m_center_point_longitude
+    var index = req.body.index
+    var indexArr = index.split("@")
+    console.log("indexArr : ",indexArr);
     var m_salt = Math.round((new Date().valueOf() * Math.random())) + "";
     var hashPassword = crypto.createHash("sha512").update(m_password+m_salt).digest("hex");
-    
+
     var data = {p_id:p_id,m_password:hashPassword,m_owner:m_owner,m_status:m_status,m_size:m_size,
                 m_unit_scale:m_unit_scale,m_rotation:m_rotation,m_center_place_string:m_center_place_string,
                 m_center_point_latitude:m_center_point_latitude,m_center_point_longitude:m_center_point_longitude,
@@ -25,12 +28,36 @@ exports.mapMake = function(req,res){
         if(err){
             console.log("맵 목록 insert 에러 발생");
             admit ={"overlap_examine":"error"};
+            res.write(JSON.stringify(admit));
+            res.end()
         }else{
             console.log(results)
-            admit = {"overlap_examine":"success","m_id":results.insertId}
+            //mapdetail 넣기
+            var values = []
+            for(var i =0;i<64;i++){
+                var arr = []
+                arr[arr.length] = results.insertId //mapId
+                arr[arr.length] = ""+i // index
+                if(indexArr.indexOf(""+i) == -1){//검은색 색칠안됨
+                    arr[arr.length] = 0
+                }else{ //검은색 색칠
+                    arr[arr.length] = -1
+                }
+                values[values.length] = arr
+            }
+           // console.log("values : ",values)
+            var query = 'insert into MAPDETAIL (m_id,md_index,md_percent) values ?'
+            mysqlDB.query(query,[values],function(err,result){
+                if(err){
+                    admit ={"overlap_examine":"error"};
+                }else{
+                    admit = {"overlap_examine":"success","m_id":results.insertId}
+                }
+                res.write(JSON.stringify(admit));
+                res.end()
+            })
+            
         }
-        res.write(JSON.stringify(admit));
-        res.end()
     })
 }
 

@@ -87,6 +87,9 @@ router.route("/map/attendance").post(aboutMap.mapAttendance)
 router.route("/modify/department").get(departmentInfo.modfiyDepartment)//departmentInfo.js의 부서 수정
 router.route("/delete/department").get(departmentInfo.deleteDepartment)//departmentINfo.js의 부서 삭제
 
+//지도관련
+
+
 var server = http.createServer(app).listen(app.get('port'),function(){
     console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'))
 }) //express를 이용해 웹서버 만든다
