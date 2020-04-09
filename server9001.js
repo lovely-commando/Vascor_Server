@@ -87,6 +87,9 @@ router.route("/map/attendance").post(aboutMap.mapAttendance)
 router.route("/modify/department").get(departmentInfo.modfiyDepartment)//departmentInfo.js의 부서 수정
 router.route("/delete/department").get(departmentInfo.deleteDepartment)//departmentINfo.js의 부서 삭제
 
+//지도관련
+
+
 var server = http.createServer(app).listen(app.get('port'),function(){
     console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'))
 }) //express를 이용해 웹서버 만든다
@@ -107,27 +110,33 @@ io.sockets.on('connection',function(socket){
         var uid = data.uid
         var mid = data.mid
 
-        console.log("make room");
-        if(io.sockets.adapter.rooms[mid]){
-            console.log("이미 방이 만들어져 있습니다.");
-        }else
-        console.log('새로방을 만듭니다');
-
-        socket.join(mid);
-
-        var curRoom = io.sockets.adapter.rooms[mid];
         var message = {}
-        if(curRoom == null){
-            message["check"] = "error"
-        }else{
-            curRoom.uid = uid;
-            curRoom.mid = mid;
-            curRoom.sid = socket.id;
-            //위치정보 저장할 배열도 있어야함
-            console.log("curRoom : ",curRoom);
+        console.log("make room");
+        if(io.sockets.adapter.rooms.hasOwnProperty(mid)){
+            console.log("이미 방이 만들어져 있습니다.");
             message["check"] = "success"
+            socket.join(mid)
+        }else{
+            socket.join(mid)
+            var curRoom = io.sockets.adapter.rooms[mid];
+            if(curRoom == null){
+                message["check"] = "error"
+            }else{
+                console.log("방만들었습니다.")
+                curRoom.uid = uid;
+                curRoom.mid = mid;
+                curRoom.sid = socket.id;
+                //위치정보 저장할 배열도 있어야함
+                console.log("curRoom : ",curRoom);
+                console.log("curRoom_length : ", io.sockets.adapter.rooms[mid].length)
+                message["check"] = "success"
+            }
         }
-        io.sockets.connected[socket.id].emit('makeRoom',message);
+        console.log("message : ",message)
+        io.sockets.connected[socket.id].emit('makeRoom',message)
+
+       
+        
     })
 
     socket.on("attendRoom",function(data){
