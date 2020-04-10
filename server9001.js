@@ -110,6 +110,7 @@ console.log('socket.io 요청을 받아들일 준비가 되었습니다')
 io.sockets.on('connection',function(socket){
     console.log("socket Id : "+socket.id+ " connect")
     socket.LatLngArr = new Array()
+    socket.flag = 0 //디비에 insert했는지 안했는지의 대한 flag
     
     
     // var data = {}
@@ -201,16 +202,50 @@ io.sockets.on('connection',function(socket){
                 uploadtoDBLatLng += "@"
             })
             console.log("uploadtoDBLatLng : " + uploadtoDBLatLng)
-            mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?);',[socket.mid, socket.uid, uploadtoDBLatLng],function(err,rows,fields){
-                if(err){
-                    console.log("위치정보 배열 에러")
-                }
-                else{
-                    socket.to(socket.mid).emit("drawLatLng", uploadtoDBLatLng)
-                }
-            })
-            socket.LatLngArr = new Array()
-            socket.LatLngArr.push(curLatLng)  
+            var message = {}
+            if(socket.flag == 0){
+                mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?)',[socket.mid, socket.uid, uploadtoDBLatLng],function(err,rows,fields){
+                    if(err){
+                        console.log("위치정보 배열 에러")
+                        message["check"] = "error"
+                        io.sockets.in(socket.mid).emit("drawLatLng",message)
+                    }
+                    else{
+                        socket.flag = 1;  
+                        var query = 'update MAPDETAIL set md_percent = ? where m_id = ? and md_index = ?'
+                        mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
+                            if(err){
+                                console.log("퍼센트 업데이트 에러")
+                            }
+                            message["check"] = "success"
+                            message["latLng"] = uploadtoDBLatLng
+                            socket.LatLngArr = new Array()
+                            socket.LatLngArr.push(curLatLng)
+                            io.sockets.in(socket.mid).emit("drawLatLng",message)
+                        })
+                    }
+                })
+            }else if(socket.flag == 1){
+                mysqlDB.query("update MAPLATLNG set latlng_arr = ? where m_id = ? and u_id = ?",function(err,results){
+                    if(err){
+                        console.log("update maplatlng 에러")
+                        message["check"] = "error"
+                        io.sockets.in(socket.mid).emit("drawLatLng",message)
+                    }else{
+                        var query = 'update MAPDETAIL set md_percent = ? where m_id = ? and md_index = ?'
+                        mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
+                            if(err){
+                                console.log("퍼센트 업데이트 에러")
+                            }
+                            message["check"] = "success"
+                            message["latLng"] = uploadtoDBLatLng
+                            socket.LatLngArr = new Array()
+                            socket.LatLngArr.push(curLatLng)
+                            io.sockets.in(socket.mid).emit("drawLatLng",message)
+                        })
+                    }
+                })
+            }
         }
     })
 
