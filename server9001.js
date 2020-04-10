@@ -213,6 +213,14 @@ io.sockets.on('connection',function(socket){
             socket.LatLngArr.push(curLatLng)  
         }
     })
+    
+    socket.on("heatmap",function(data){
+        var heatmapInfo = {}
+        for(var i = 0; i<64; ++i){
+            heatmapInfo["" + i] = io.sockets.adapter.rooms[socket.mid]["" + i]
+        }
+        io.sockets.connected[socket.id].emit('heatmap', heatmapInfo)
+    })
 
 
 })
