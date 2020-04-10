@@ -9,7 +9,7 @@ exports.getMperson = function(req,res){ //실종자 리스트 받아오기 (지�
         }else{
             var result = 'rows : '+JSON.stringify(rows)+'<br><br>' +
             'fields : ' + JSON.stringify(fields);
-            console.log(rows);
+            // console.log(rows);
             res.write(JSON.stringify(rows));
             res.end();
         }

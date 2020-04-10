@@ -109,7 +109,7 @@ console.log('socket.io 요청을 받아들일 준비가 되었습니다')
 
 io.sockets.on('connection',function(socket){
     console.log("socket Id : "+socket.id+ " connect")
-    var LatLngArr = new Array()
+    socket.LatLngArr = new Array()
     
     
     // var data = {}
@@ -140,6 +140,17 @@ io.sockets.on('connection',function(socket){
                 curRoom.uid = socket.uid;
                 curRoom.mid = socket.mid;
                 curRoom.sid = socket.id;
+                mysqlDB.query("select md_index, md_percent from MAPDETAIL where m_id = ?",[socket.mid],function(err,rows,fields){
+                    if(err){
+                        console.log(err)
+                        console.log("error 입니다")
+                    }else{
+                        rows.forEach(function(row){
+                            curRoom[row.md_index] = row.md_percent
+                        })
+                        // console.log(curRoom)
+                    }
+                })
                 //위치정보 저장할 배열도 있어야함
                 console.log("curRoom : ",curRoom);
                 console.log("curRoom_length : ", io.sockets.adapter.rooms[socket.mid].length)
@@ -156,6 +167,7 @@ io.sockets.on('connection',function(socket){
     socket.on("attendRoom",function(data){
         var uid = data.uid // user id
         var mid = data.mid // map id
+        
         var message = {}
 
         if(socket == null){
@@ -172,15 +184,19 @@ io.sockets.on('connection',function(socket){
     socket.on("sendLatLng", function(data){
         var curLat = data.Lat
         var curLng = data.Lng
+        var idx = data.idx
         var curLatLng = '' + data.Lat + ";" + data.Lng
+        //자기가 들어온 부분에 해당하는 인덱스 값의 점 개수 증가
+        io.sockets.adapter.rooms[socket.mid][""+idx] += 1;
         console.log("socketMID : " + socket.mid)
         console.log("socketUID : "+ socket.uid)
         console.log("curLat : " + curLat);
         console.log("curLng : " + curLng);
-        LatLngArr.push(curLatLng)
-        if(LatLngArr.length > 20){
+        console.log("curRoom 6: " + io.sockets.adapter.rooms[socket.mid]["5"] + "curRoom 7: " +  io.sockets.adapter.rooms[socket.mid]["7"])
+        socket.LatLngArr.push(curLatLng)
+        if(socket.LatLngArr.length > 20){
             var uploadtoDBLatLng = ""
-            LatLngArr.forEach(function(element){
+            socket.LatLngArr.forEach(function(element){
                 uploadtoDBLatLng += element
                 uploadtoDBLatLng += "@"
             })
@@ -193,8 +209,8 @@ io.sockets.on('connection',function(socket){
                     socket.to(socket.mid).emit("drawLatLng", uploadtoDBLatLng)
                 }
             })
-            LatLngArr = new Array()
-            LatLngArr.push(curLatLng)  
+            socket.LatLngArr = new Array()
+            socket.LatLngArr.push(curLatLng)  
         }
     })
 
