@@ -99,6 +99,21 @@ router.route("/get/placeIndex").get(function(req,res){
     })
 })
 
+router.route("/get/latLng").get(function(req,res){
+    console.log("get latlng")
+    var mid = req.query.mid
+    var query = 'select latlng_arr,color from MAPLATLNG where m_id = ?'
+    mysqlDB.query(query,[mid],function(err,results){
+        if(err){
+            console.log("error")
+        }else{
+            console.log("results : ",results)
+            res.send(JSON.stringify(results))
+        }
+        
+    })
+})
+
 
 var server = http.createServer(app).listen(app.get('port'),function(){
     console.log("익스프레스로 웹 서버를 실행함 : "+ app.get('port'))
@@ -124,6 +139,11 @@ io.sockets.on('connection',function(socket){
     socket.on("makeRoom",function(data){
         socket.uid = data.uid
         socket.mid = data.mid
+        socket.color = data.color
+        
+        console.log("uid : ",socket.uid)
+        console.log("mid : ",socket.mid)
+        console.log("color : ",socket.color)
 
         var message = {}
         console.log("make room");
@@ -205,7 +225,7 @@ io.sockets.on('connection',function(socket){
             console.log("uploadtoDBLatLng : " + uploadtoDBLatLng)
             var message = {}
             if(socket.flag == 0){
-                mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?)',[socket.mid, socket.uid, uploadtoDBLatLng],function(err,rows,fields){
+                mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr,color) values (?, ?, ?,?)',[socket.mid, socket.uid, uploadtoDBLatLng,socket.color],function(err,rows,fields){
                     console.log("insert MAPLATLNG")
                     if(err){
                         console.log("위치정보 배열 에러")
@@ -222,6 +242,7 @@ io.sockets.on('connection',function(socket){
                             }
                             message["check"] = "success"
                             message["latLng"] = uploadtoDBLatLng
+                            message["color"] = socket.color
                             socket.LatLngArr = new Array()
                             socket.LatLngArr.push(curLatLng)
                             io.sockets.in(socket.mid).emit("drawLatLng",message)
@@ -244,6 +265,7 @@ io.sockets.on('connection',function(socket){
                             }
                             message["check"] = "success"
                             message["latLng"] = uploadtoDBLatLng
+                            message["color"] = socket.color
                             socket.LatLngArr = new Array()
                             socket.LatLngArr.push(curLatLng)
                             io.sockets.in(socket.mid).emit("drawLatLng",message)
