@@ -300,33 +300,35 @@ io.sockets.on('connection',function(socket){
             if(err){
                 console.log("에러")
                 message["check"] = "error"
-                socket.to(socket.mid).emit("specialThing", message)
+                io.sockets.in(socket.mid).emit("specialThing", message)
             }
             else{ 
                 message["check"] = "success"
                 message["longitude"] = longitude;
                 message["latitude"] = latitude;
-                socket.to(socket.mid).emit("specialThing", message)
+                io.sockets.in(socket.mid).emit("specialThing", message)
             }
         })
     })
 
     socket.on("findPeople", function(data){
-        var longitude = data.m_find_latitude
-        var latitude = data.m_find_longitude
-        
+        var latitude = data.m_find_latitude
+        var longitude = data.m_find_longitude
+        console.log("lng : ",longitude)
+        console.log("lat : ",latitude)
+        var message = {}
         mysqlDB.query('update MAPLIST set m_find_latitude = ? , m_find_longitude = ? where m_id = ?',[latitude, longitude, socket.mid],function(err,rows,fields){
             console.log("insert Find People")
             if(err){
                 console.log("에러")
                 message["check"] = "error"
-                socket.to(socket.mid).emit("findPeople", message)
+                io.sockets.in(socket.mid).emit("findPeople", message)
             }
             else{ 
                 message["check"] = "success"
                 message["longitude"] = longitude;
                 message["latitude"] = latitude;
-                socket.to(socket.mid).emit("findPeople", message)
+                io.sockets.in(socket.mid).emit("findPeople", message)
             }
         })
     })
