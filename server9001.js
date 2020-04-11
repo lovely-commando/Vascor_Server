@@ -24,6 +24,7 @@ var mperson = require('./mperson')
 var insertInfo = require('./insertInfo')
 var aboutMap = require('./aboutMap.js')
 var departmentInfo = require('./departmentInfo')
+var unableLocation = require('./unableLocation')
 
 mysqlDB.connect();
 
@@ -86,6 +87,10 @@ router.route("/map/attendance").post(aboutMap.mapAttendance)
 //departmentInfo.js(부서 변경, 부서 삭제)
 router.route("/modify/department").get(departmentInfo.modfiyDepartment)//departmentInfo.js의 부서 수정
 router.route("/delete/department").get(departmentInfo.deleteDepartment)//departmentINfo.js의 부서 삭제
+
+router.route("/whole/unableLocate").get(unableLocation.selectWholeInfo)//전체 맵의 특이사항 위도 경도 좌표 가져오기
+router.route("/detail/unableLocate").get(unableLocation.selectDetailInfo)// 특정맵의 특정 좌표값에 대한 정보 가져오기
+
 
 //지도관련
 
@@ -284,6 +289,47 @@ io.sockets.on('connection',function(socket){
         io.sockets.connected[socket.id].emit('heatmap', heatmapInfo)
     })
 
+
+    socket.on("specialThing", function(data){
+        var longitude = data.ul_longitude
+        var latitude = data.ul_latitude
+        var desc = data.ul_desc
+        var filename = data.ul_file
+        mysqlDB.query('INSERT into UNABLE_LOCATION (m_id, ul_longitude, ul_latitude,ul_desc, ul_file) values (?, ?, ?,?)',[socket.mid, longitude, latitude, desc, filename],function(err,rows,fields){
+            console.log("insert UNABLE_LOCATION")
+            if(err){
+                console.log("에러")
+                message["check"] = "error"
+                socket.to(socket.mid).emit("specialThing", message)
+            }
+            else{ 
+                message["check"] = "success"
+                message["longitude"] = longitude;
+                message["latitude"] = latitude;
+                socket.to(socket.mid).emit("specialThing", message)
+            }
+        })
+    })
+
+    socket.on("findPeople", function(data){
+        var longitude = data.m_find_latitude
+        var latitude = data.m_find_longitude
+        
+        mysqlDB.query('update MAPLIST set m_find_latitude = ? , m_find_longitude = ? where m_id = ?',[latitude, longitude, socket.mid],function(err,rows,fields){
+            console.log("insert Find People")
+            if(err){
+                console.log("에러")
+                message["check"] = "error"
+                socket.to(socket.mid).emit("findPeople", message)
+            }
+            else{ 
+                message["check"] = "success"
+                message["longitude"] = longitude;
+                message["latitude"] = latitude;
+                socket.to(socket.mid).emit("findPeople", message)
+            }
+        })
+    })
 
 })
 
