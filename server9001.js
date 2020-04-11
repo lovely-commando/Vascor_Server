@@ -187,6 +187,7 @@ io.sockets.on('connection',function(socket){
         var curLng = data.Lng
         var idx = data.idx
         var curLatLng = '' + data.Lat + ";" + data.Lng
+        console.log("idx : ",idx)
         //자기가 들어온 부분에 해당하는 인덱스 값의 점 개수 증가
         io.sockets.adapter.rooms[socket.mid][""+idx] += 1;
         console.log("socketMID : " + socket.mid)
@@ -205,12 +206,14 @@ io.sockets.on('connection',function(socket){
             var message = {}
             if(socket.flag == 0){
                 mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr) values (?, ?, ?)',[socket.mid, socket.uid, uploadtoDBLatLng],function(err,rows,fields){
+                    console.log("insert MAPLATLNG")
                     if(err){
                         console.log("위치정보 배열 에러")
                         message["check"] = "error"
                         io.sockets.in(socket.mid).emit("drawLatLng",message)
                     }
-                    else{
+                    else{ //percent update
+                        console.log("insert percent upload : ",idx)
                         socket.flag = 1;  
                         var query = 'update MAPDETAIL set md_percent = ? where m_id = ? and md_index = ?'
                         mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
@@ -226,12 +229,14 @@ io.sockets.on('connection',function(socket){
                     }
                 })
             }else if(socket.flag == 1){
-                mysqlDB.query("update MAPLATLNG set latlng_arr = ? where m_id = ? and u_id = ?",function(err,results){
+                mysqlDB.query("update MAPLATLNG set latlng_arr = ? where m_id = ? and u_id = ?",[uploadtoDBLatLng,socket.mid,socket.uid],function(err,results){
+                    console.log("update MAPLATLNG")
                     if(err){
                         console.log("update maplatlng 에러")
                         message["check"] = "error"
                         io.sockets.in(socket.mid).emit("drawLatLng",message)
                     }else{
+                        console.log("update percent upload : ",idx)
                         var query = 'update MAPDETAIL set md_percent = ? where m_id = ? and md_index = ?'
                         mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
                             if(err){
