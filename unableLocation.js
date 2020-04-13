@@ -21,16 +21,16 @@ exports.selectDetailInfo = function(req,res){ //
     var longitude = req.query.ul_longitude;  
     console.log(mapid);
     console.log(latitude);
-    console.log(longitude); 
+    console.log(longitude);
     var query = 'select ul_desc, ul_file from UNABLE_LOCATION where m_id = ? and ul_latitude = ? and ul_longitude = ?'
     console.log(query);
-    mysqlDB.query(query,[mapid, parseFloat(latitude), parseFloat(longitude)],function(err,results){
+    mysqlDB.query(query,[mapid, latitude, longitude],function(err,results){
         if(err){
             console.log(err);
             console.log("detail error");
         }
         else{
-            console.log(results[0]);
+            console.log(results);
             res.send(JSON.stringify(results[0])); 
         }
     })

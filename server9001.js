@@ -343,6 +343,8 @@ io.sockets.on('connection',function(socket){
         var latitude = data.ul_latitude
         var desc = data.ul_desc
         var filename = data.ul_file
+        console.log("lat : ",latitude)
+        console.log("lng : ",longitude)
         var message = {}
         mysqlDB.query('INSERT into UNABLE_LOCATION (m_id, ul_longitude, ul_latitude,ul_desc, ul_file) values (?, ?, ?,?,?)',[socket.mid, longitude, latitude, desc, filename],function(err,rows,fields){
             console.log("insert UNABLE_LOCATION")
