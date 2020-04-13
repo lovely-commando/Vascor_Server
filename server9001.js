@@ -57,6 +57,28 @@ var mpersonUpload = multer({
 })
 
 
+var notCompleteStorage = multer.diskStorage({
+    destination : function(req,file,callback){
+        var dir = './public/not_complete_picture';
+        callback(null,dir);
+
+    }, //파일위치 정하기
+    filename : function(req,file,callback){
+       var extension = path.extname(file.originalname); //확장자
+       var basename = path.basename(file.originalname,extension); //확장자 뺀 파일이름
+       callback(null,basename+extension);
+    } //파일이름 정하기
+})
+
+var notCompleteUpload = multer({
+    storage : notCompleteStorage,
+    limits:{
+        files:10,
+        fileSize:1024*1024*10
+    }
+})
+
+
 var router = express.Router();
 app.use('/',router);
 
@@ -118,6 +140,32 @@ router.route("/get/latLng").get(function(req,res){
         
     })
 })
+
+
+router.route("/not_complete/image").post(notCompleteUpload.array("upload",1),function(req,res){ //수색불가시 사진 보낼 때의 url
+    var files = req.files;
+    var mid = req.body.mid;
+  
+
+    console.log("mid : "+mid);
+    console.log('===업로드된 파일 ====');
+    console.log(files[0]); 
+    console.log("file name : "+files[0].originalname);
+    var dir = "./public/not_complete_picture/"+mid;
+    if(!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
+    var admit;
+    fs.renameSync("./public/not_complete_picture/"+files[0].originalname, dir+"/"+files[0].originalname,function(err){
+        console.log("error")
+        res.send(JSON.stringify({"overlap_examine" : "error"}))
+        return
+    });
+    console.log("not error")
+    admit = {"overlap_examine" : 'success'};
+    res.write(JSON.stringify(admit));
+    res.end();
+});
 
 
 var server = http.createServer(app).listen(app.get('port'),function(){
@@ -190,22 +238,22 @@ io.sockets.on('connection',function(socket){
         
     })
 
-    socket.on("attendRoom",function(data){
-        var uid = data.uid // user id
-        var mid = data.mid // map id
+    // socket.on("attendRoom",function(data){
+    //     var uid = data.uid // user id
+    //     var mid = data.mid // map id
         
-        var message = {}
+    //     var message = {}
 
-        if(socket == null){
-            message["check"] = "error"
-        }else{
-            socket.join(mid);
-            console.log("curRoom : ", io.sockets.adapter.rooms[mid]);
-            console.log("curRoom_length : "+ io.sockets.adapter.rooms[mid].length);
-            message["check"] = "success"
-        }
-        io.sockets.connected[socket.id].emit('attendRoom',message);
-    })
+    //     if(socket == null){
+    //         message["check"] = "error"
+    //     }else{
+    //         socket.join(mid);
+    //         console.log("curRoom : ", io.sockets.adapter.rooms[mid]);
+    //         console.log("curRoom_length : "+ io.sockets.adapter.rooms[mid].length);
+    //         message["check"] = "success"
+    //     }
+    //     io.sockets.connected[socket.id].emit('attendRoom',message);
+    // })
 
     socket.on("sendLatLng", function(data){
         var curLat = data.Lat
@@ -290,15 +338,17 @@ io.sockets.on('connection',function(socket){
     })
 
 
-    socket.on("specialThing", function(data){
+    socket.on("specialThing", function(data){ //수색불가 정보주기
         var longitude = data.ul_longitude
         var latitude = data.ul_latitude
         var desc = data.ul_desc
         var filename = data.ul_file
-        mysqlDB.query('INSERT into UNABLE_LOCATION (m_id, ul_longitude, ul_latitude,ul_desc, ul_file) values (?, ?, ?,?)',[socket.mid, longitude, latitude, desc, filename],function(err,rows,fields){
+        var message = {}
+        mysqlDB.query('INSERT into UNABLE_LOCATION (m_id, ul_longitude, ul_latitude,ul_desc, ul_file) values (?, ?, ?,?,?)',[socket.mid, longitude, latitude, desc, filename],function(err,rows,fields){
             console.log("insert UNABLE_LOCATION")
             if(err){
                 console.log("에러")
+                console.log("err : ",err)
                 message["check"] = "error"
                 io.sockets.in(socket.mid).emit("specialThing", message)
             }
@@ -311,7 +361,7 @@ io.sockets.on('connection',function(socket){
         })
     })
 
-    socket.on("findPeople", function(data){
+    socket.on("findPeople", function(data){ //수색완료 정보 주기
         var latitude = data.m_find_latitude
         var longitude = data.m_find_longitude
         console.log("lng : ",longitude)
