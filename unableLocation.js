@@ -15,15 +15,23 @@ exports.selectWholeInfo = function(req,res){ //
 }
 
 exports.selectDetailInfo = function(req,res){ //
-    var mapid = req.query.m_id;
+    
+    
+    var mapid = req.query.m_id; 
     var latitude = req.query.ul_latitude;
-    var longitude = req.query.ul_longitude;   
-    mysqlDB.query('select ul_desc, ul_file from UNABLE_LOCATION where m_id = ? and ul_longitude = ? and ul_latitude = ?',[mapid, latitude, longitude],function(err,rows,fields){
+    var longitude = req.query.ul_longitude;  
+    console.log(mapid);
+    console.log(latitude);
+    console.log(longitude); 
+    var query = 'select ul_desc, ul_file from UNABLE_LOCATION where m_id = ? and ul_latitude = ? and ul_longitude = ?'
+    console.log(query);
+    mysqlDB.query(query,[mapid, latitude, longitude],function(err,rows,fields){
         if(err){
             console.log(err);
-            console.log("에러 발생");
+            console.log("detail error");
         }
         else{
+            console.log(rows);
             res.send(JSON.stringify(rows)); 
         }
     })
