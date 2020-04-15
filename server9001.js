@@ -192,6 +192,7 @@ io.sockets.on('connection',function(socket){
     socket.on("makeRoom",function(data){
         socket.uid = data.uid
         socket.mid = data.mid
+        //socket.sid = socket.id
         socket.color = data.color
         
         console.log("uid : ",socket.uid)
@@ -261,15 +262,18 @@ io.sockets.on('connection',function(socket){
         var idx = data.idx
         var curLatLng = '' + data.Lat + ";" + data.Lng
         console.log("idx : ",idx)
+        if(idx == -1)
+            return
         //자기가 들어온 부분에 해당하는 인덱스 값의 점 개수 증가
         io.sockets.adapter.rooms[socket.mid][""+idx] += 1;
+        console.log("idx : ",io.sockets.adapter.rooms[socket.mid][""+idx])
         console.log("socketMID : " + socket.mid)
         console.log("socketUID : "+ socket.uid)
         console.log("curLat : " + curLat);
         console.log("curLng : " + curLng);
         console.log("curRoom 6: " + io.sockets.adapter.rooms[socket.mid]["5"] + "curRoom 7: " +  io.sockets.adapter.rooms[socket.mid]["7"])
         socket.LatLngArr.push(curLatLng)
-        if(socket.LatLngArr.length > 20){
+        if(socket.LatLngArr.length > 5){
             var uploadtoDBLatLng = ""
             socket.LatLngArr.forEach(function(element){
                 uploadtoDBLatLng += element
@@ -278,12 +282,14 @@ io.sockets.on('connection',function(socket){
             console.log("uploadtoDBLatLng : " + uploadtoDBLatLng)
             var message = {}
             if(socket.flag == 0){
-                mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr,color) values (?, ?, ?,?)',[socket.mid, socket.uid, uploadtoDBLatLng,socket.color],function(err,rows,fields){
+                mysqlDB.query('INSERT into MAPLATLNG (m_id, u_id, latlng_arr,color,s_id) values (?, ?, ?,?,?)',[socket.mid, socket.uid, uploadtoDBLatLng,socket.color,socket.id],function(err,rows,fields){
                     console.log("insert MAPLATLNG")
                     if(err){
                         console.log("위치정보 배열 에러")
+                        console.log("err : ",err)
                         message["check"] = "error"
-                        io.sockets.in(socket.mid).emit("drawLatLng",message)
+                        //io.sockets.in(socket.mid).emit("drawLatLng",message)
+                        socket.broadcast.to(socket.mid).emit("drawLatLng",message)
                     }
                     else{ //percent update
                         console.log("insert percent upload : ",idx)
@@ -292,39 +298,51 @@ io.sockets.on('connection',function(socket){
                         mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
                             if(err){
                                 console.log("퍼센트 업데이트 에러")
+                                console.log("error : ",err)
                             }
                             message["check"] = "success"
                             message["latLng"] = uploadtoDBLatLng
                             message["color"] = socket.color
                             socket.LatLngArr = new Array()
                             socket.LatLngArr.push(curLatLng)
-                            io.sockets.in(socket.mid).emit("drawLatLng",message)
+                            socket.broadcast.to(socket.mid).emit("drawLatLng",message)
+                            //io.sockets.in(socket.mid).emit("drawLatLng",message)
                         })
                     }
                 })
             }else if(socket.flag == 1){
-                mysqlDB.query("update MAPLATLNG set latlng_arr = ? where m_id = ? and u_id = ?",[uploadtoDBLatLng,socket.mid,socket.uid],function(err,results){
-                    console.log("update MAPLATLNG")
+                var sQuery = 'select latlng_arr from MAPLATLNG where m_id = ? and u_id =? and s_id = ?'
+                mysqlDB.query(sQuery,[socket.mid,socket.uid,socket.id],function(err,results){
                     if(err){
-                        console.log("update maplatlng 에러")
-                        message["check"] = "error"
-                        io.sockets.in(socket.mid).emit("drawLatLng",message)
+                        console.log("error")
                     }else{
-                        console.log("update percent upload : ",idx)
-                        var query = 'update MAPDETAIL set md_percent = ? where m_id = ? and md_index = ?'
-                        mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
+                        var realDistance = results[0].latlng_arr + uploadtoDBLatLng
+                        console.log("Real uploadt : " ,realDistance)
+                        mysqlDB.query("update MAPLATLNG set latlng_arr = ? where m_id = ? and u_id = ? and s_id=?",[realDistance,socket.mid,socket.uid,socket.id],function(err,results){
+                            console.log("update MAPLATLNG")
                             if(err){
-                                console.log("퍼센트 업데이트 에러")
+                                console.log("update maplatlng 에러")
+                                message["check"] = "error"
+                                socket.broadcast.to(socket.mid).emit("drawLatLng",message)
+                            }else{
+                                console.log("update percent upload : ",idx)
+                                var query = 'update MAPDETAIL set md_percent = ? where m_id = ? and md_index = ?'
+                                mysqlDB.query(query,[io.sockets.adapter.rooms[socket.mid][""+idx],socket.mid,idx],function(err,results){
+                                    if(err){
+                                        console.log("퍼센트 업데이트 에러")
+                                    }
+                                    message["check"] = "success"
+                                    message["latLng"] = uploadtoDBLatLng
+                                    message["color"] = socket.color
+                                    socket.LatLngArr = new Array()
+                                    socket.LatLngArr.push(curLatLng)
+                                    socket.broadcast.to(socket.mid).emit("drawLatLng",message)
+                                })
                             }
-                            message["check"] = "success"
-                            message["latLng"] = uploadtoDBLatLng
-                            message["color"] = socket.color
-                            socket.LatLngArr = new Array()
-                            socket.LatLngArr.push(curLatLng)
-                            io.sockets.in(socket.mid).emit("drawLatLng",message)
                         })
                     }
                 })
+               
             }
         }
     })
@@ -343,6 +361,7 @@ io.sockets.on('connection',function(socket){
         var latitude = data.ul_latitude
         var desc = data.ul_desc
         var filename = data.ul_file
+        console.log("specialThing 수색 불가 위도 경도")
         console.log("lat : ",latitude)
         console.log("lng : ",longitude)
         var message = {}
